@@ -13,7 +13,7 @@ st.title("PEPCO Label Automation")
 st.caption("Upload PEPCO order/PO PDF")
 
 pdf_files = st.file_uploader(
-    "Upload PEPCO PDF (add more files after the first just to pull in extra Order IDs)",
+    "Upload PEPCO PDF",
     type=["pdf"], accept_multiple_files=True, key="pdf_uploader",
 )
 if not pdf_files:
@@ -31,8 +31,8 @@ if "pdf_extracted_df" not in st.session_state or st.session_state.get("pdf_uploa
     st.session_state["pdf_extracted_df"] = extracted_df.drop(columns=["_temp_sku_for_filename"])
     st.session_state["pdf_uploader_names"] = [f.name for f in pdf_files]
 
-st.subheader("✏️ Review & correct extracted data")
-st.caption("Every field is editable — fix anything the extractor got wrong or left blank before generating.")
+st.subheader("Review & correct extracted data")
+st.caption("Every field is editable — fix anything the extractor got wrong.")
 corrected_df = st.data_editor(
     st.session_state["pdf_extracted_df"],
     use_container_width=True,
@@ -40,7 +40,7 @@ corrected_df = st.data_editor(
     key="pdf_data_editor",
 )
 
-st.subheader("🚀 Generate Labels")
+st.subheader("Generate Layout")
 if st.button("Generate PDF", type="primary"):
     rows = corrected_df.to_dict(orient="records")
     with st.spinner("Generating..."):
@@ -50,7 +50,7 @@ if st.button("Generate PDF", type="primary"):
     filename_row.update(rows[0])  # reflect any corrections in the filename too
     download_name = extractor.build_filename(filename_row, extension="pdf")
     st.download_button(
-        "⬇️ Download PDF", data=final_pdf,
+        "⬇️ Download", data=final_pdf,
         file_name=download_name, mime="application/pdf",
     )
 
