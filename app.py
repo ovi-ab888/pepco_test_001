@@ -1,252 +1,223 @@
-"""
-extractor.py
-Extracts label data directly from a PEPCO tech-pack/order PDF — ported from
-PEPCO_Label_Automation_V3 (app.py). Returns a pandas DataFrame with exactly
-the columns our label engine (inner/outer/pad) already expects, so its
-output can be fed straight into labels.pad_label.generate_batch() etc.
-without any renaming.
-"""
-import re
-from datetime import datetime
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
 
-import fitz  # PyMuPDF
+import json
 import pandas as pd
+import streamlit as st
+import fitz
 
-PICTOGRAM_MAPPING = {
-    "PIC00033": "A", "PIC00019": "8", "PIC00020": "9", "PIC00034": "B", "PIC00009": "R",
-    "PIC00182": "3", "PIC00181": "5", "PIC00028": "S", "PIC00032": "C", "PIC00010": "Q",
-    "PIC00178": "1", "PIC00014": "L", "PIC00011": "N", "PIC00183": "4", "PIC00186": "7",
-    "PIC00184": "2", "PIC00012": "M", "PIC00031": "E", "PIC00029": "F", "PIC00027": "G",
-    "PIC00185": "6", "PIC00013": "O", "PIC00180": "0", "PIC00030": "D",
-}
-PROMOTIONAL_MAPPING = {"PROMO": "P", "KVI": "K", "HS": "H"}
+from engine.label_engine import fill_single_label, generate_multipage_pdf, compose_pdf_into_rect
+import labels.inner_label as inner_label
+import labels.outer_label as outer_label
+import labels.pad_label as pad_label
+import extractor
 
+st.set_page_config(page_title="PEPCO Label Automation", layout="wide")
+st.title("🏷️ PEPCO Label Automation")
 
-def _extract_all_tc_numbers_from_page4_plus(pages_text):
-    tc_list = []
-    if len(pages_text) >= 4:
-        for i in range(3, len(pages_text)):
-            for pattern in [r"TC\s*-\s*(T\d+)", r"TC\s*[:.]?\s*(T\d+)"]:
-                for m in re.findall(pattern, pages_text[i], re.IGNORECASE):
-                    if m not in tc_list:
-                        tc_list.append(m)
-    return tc_list[:7]
+TOP_MODES = ["📄 PDF Upload (auto-extract)", "📊 Excel Upload (manual)"]
+top_mode = st.radio("Data source", TOP_MODES, horizontal=True)
 
+# ============================================================================
+# FLOW A — Upload PEPCO PDF → auto-extract data → correct → generate → download
+# ============================================================================
+if top_mode == "📄 PDF Upload (auto-extract)":
+    st.caption("Upload the PEPCO order/tech-pack PDF — data is pulled out automatically. "
+               "Fix anything wrong in the table, then generate.")
 
-def _extract_all_barcodes_from_page4_plus(pages_text):
-    barcode_list = []
-    if len(pages_text) >= 4:
-        for i in range(3, len(pages_text)):
-            barcode_list.extend(re.findall(r"\b\d{13}\b", pages_text[i]))
-    seen, out = set(), []
-    for b in barcode_list:
-        if b not in seen:
-            seen.add(b)
-            out.append(b)
-    return out[:7]
-
-
-def _extract_product_name_from_page4_plus(pages_text):
-    if len(pages_text) >= 4:
-        for i in range(3, len(pages_text)):
-            text = pages_text[i]
-            m = re.search(r"ITEM\s*\d+\s*\n\s*(.+)", text, re.IGNORECASE)
-            if not m:
-                m = re.search(r"Product\s*name\s*[:.]?\s*(.+)", text, re.IGNORECASE)
-            if m:
-                return m.group(1).strip()
-    return ""
-
-
-def _extract_inner_kg_from_page4_plus(pages_text):
-    if len(pages_text) >= 4:
-        for i in range(3, len(pages_text)):
-            text = pages_text[i]
-            m = re.search(r"MAX\.?\s*(\d+)\s*kg", text, re.IGNORECASE)
-            if not m:
-                m = re.search(r"(\d+)\s*kg", text, re.IGNORECASE)
-            if m:
-                return f"MAX. {m.group(1)} kg"
-    return ""
-
-
-def _extract_season_from_page4_plus(pages_text):
-    if len(pages_text) >= 4:
-        for i in range(3, len(pages_text)):
-            m = re.search(r"\b(AW|SS|FW|SW)\d{2}\b", pages_text[i], re.IGNORECASE)
-            if m:
-                return m.group(0).upper()
-    return ""
-
-
-def _extract_inner_qty_from_page4_plus(pages_text):
-    if len(pages_text) >= 4:
-        for i in range(3, len(pages_text)):
-            m = re.search(r"(\d+)\s*Pcs", pages_text[i], re.IGNORECASE)
-            if m:
-                return f"{m.group(1)} Pcs"
-    return ""
-
-
-def _extract_outer_qty_from_page4_plus(pages_text):
-    if len(pages_text) >= 4:
-        patterns = [
-            r"(\d+)\s*Inner\s*OUTER", r"(\d+)\s*OUTER", r"OUTER\s*[:.]?\s*(\d+)",
-            r"(\d+)\s*X\s*INNER\s*OUTER", r"OUTER\s*QTY\s*[:.]?\s*(\d+)",
-        ]
-        for i in range(3, len(pages_text)):
-            text = pages_text[i]
-            for p in patterns:
-                m = re.search(p, text, re.IGNORECASE)
-                if m:
-                    return f"{m.group(1)} Inner"
-    return ""
-
-
-def _clean_item_name_english(name: str) -> str:
-    if not isinstance(name, str):
-        return ""
-    text = re.sub(r"^\d+\.\s*", "", name.strip()).strip()
-    return text.upper()
-
-
-def _extract_colour(pages_text):
-    for txt in pages_text:
-        m = re.search(r"Colour.*?\n.*?\n\s*([A-Za-z ]+)\s+[0-9]{2}-[0-9]{4}", txt, re.IGNORECASE | re.DOTALL)
-        if m:
-            return m.group(1).strip().upper()
-    for txt in pages_text:
-        m2 = re.search(r"Purchase price.*?\n\s*([A-Za-z ]+)\s+[0-9]{2}-[0-9]{4}", txt, re.IGNORECASE | re.DOTALL)
-        if m2:
-            return m2.group(1).strip().upper()
-    for txt in pages_text:
-        if "colour" in txt.lower():
-            for line in txt.splitlines():
-                if re.search(r"[A-Za-z ]+\s+[0-9]{2}-[0-9]{4}", line):
-                    name = line.split()[0:-1]
-                    if name:
-                        return " ".join(name).upper()
-    return ""  # left blank — user fills it in during the correction step
-
-
-def extract_order_id_only(file) -> str | None:
-    """Extract just the Order ID from an extra PDF (used to concatenate multiple orders)."""
-    try:
-        file.seek(0)
-    except Exception:
-        pass
-    try:
-        with fitz.open(stream=file.read(), filetype="pdf") as doc:
-            page1_text = doc[0].get_text() if len(doc) > 0 else ""
-    except Exception:
-        return None
-    finally:
-        try:
-            file.seek(0)
-        except Exception:
-            pass
-    m = re.search(r"Order\s*-\s*ID\s*\.{2,}\s*([A-Z0-9_+-]+)", page1_text, re.IGNORECASE)
-    return m.group(1).strip() if m else None
-
-
-def extract_row_from_pdf(file, extra_order_ids: str = "") -> dict | None:
-    """
-    file: an uploaded PDF (file-like, .read() available).
-    Returns one row dict with exactly the columns the label engine expects,
-    or None (with the reason left to the caller to surface) if extraction
-    fails outright (e.g. not a valid PDF).
-    """
-    raw = file.read()
-    if not raw:
-        return None
-    doc = fitz.open(stream=raw, filetype="pdf")
-    if len(doc) < 1:
-        return None
-
-    pages_text = [doc[i].get_text() for i in range(len(doc))]
-    full_text = "\n".join(pages_text)
-    page1 = pages_text[0]
-
-    all_tc_numbers = _extract_all_tc_numbers_from_page4_plus(pages_text)
-    all_barcodes = _extract_all_barcodes_from_page4_plus(pages_text)
-    product_name = _extract_product_name_from_page4_plus(pages_text)
-    inner_kg = _extract_inner_kg_from_page4_plus(pages_text)
-    season_st = _extract_season_from_page4_plus(pages_text)
-    inner_qty = _extract_inner_qty_from_page4_plus(pages_text)
-    outer_qty = _extract_outer_qty_from_page4_plus(pages_text)
-
-    pictogram = ""
-    m = re.search(r"Pictogram\s*no.*?(PIC\d{5})", page1, re.IGNORECASE | re.DOTALL)
-    if m:
-        pictogram = PICTOGRAM_MAPPING.get(m.group(1).upper(), "")
-
-    promotional = ""
-    m = re.search(r"Promotional\s*product.*?(NON\s+PROMO|PROMO|KVI|HS)\b", page1, re.IGNORECASE | re.DOTALL)
-    if m:
-        value = re.sub(r"\s+", " ", m.group(1).strip()).upper()
-        if value != "NON PROMO":
-            promotional = PROMOTIONAL_MAPPING.get(value, "")
-
-    item_name_en = ""
-    m_item = re.search(r"Item\s*name\s*English\s*[:\.]{1,}\s*(.+)", full_text, re.IGNORECASE)
-    if not m_item:
-        m_item = re.search(r"Item\s*name\s*[:\.]{1,}\s*(.+?)\n", full_text, re.IGNORECASE)
-    if m_item:
-        item_name_en = m_item.group(1).strip()
-
-    style_code = re.search(r"\b\d{6}\b", page1)
-    order_id = re.search(r"Order\s*-\s*ID\s*\.{2,}\s*(.+)", page1)
-    item_class = re.search(r"Item classification\s*\.{2,}\s*(.+)", page1)
-    supplier_code = re.search(r"Supplier product code\s*\.{2,}\s*(.+)", page1)
-    supplier_name = re.search(r"Supplier name\s*\.{2,}\s*(.+)", page1)
-    season = re.search(r"Season\s*\.{2,}\s*(\w+)?\s*(\d{2})", page1)
-
-    colour = _extract_colour(pages_text)
-
-    row = {
-        "Order_ID": (order_id.group(1).strip() if order_id else "") + (f"+{extra_order_ids}" if extra_order_ids else ""),
-        "Style": style_code.group() if style_code else "",
-        "Colour": colour.title() if colour else "",
-        "Supplier_product_code": supplier_code.group(1).strip() if supplier_code else "",
-        "Item_classification": item_class.group(1).strip() if item_class else "",
-        "Supplier_name": supplier_name.group(1).strip() if supplier_name else "",
-        "today_date": datetime.today().strftime("%d-%m-%Y"),
-        "Item_name_English": _clean_item_name_english(item_name_en),
-        "Season": f"{season.group(1)}{season.group(2)}" if season else "",
-        "Pictogram": pictogram,
-        "Promotional": promotional,
-        "Product_name": product_name,
-        "Inner_kg": inner_kg,
-        "Season_st": season_st,
-        "Inner_qty": inner_qty,
-        "Outer_qty": outer_qty,
-    }
-    for i in range(7):
-        row[f"TC_Number_st{i+1}"] = all_tc_numbers[i] if i < len(all_tc_numbers) else ""
-    for i in range(7):
-        row[f"Barcode_st{i+1}"] = all_barcodes[i] if i < len(all_barcodes) else ""
-
-    return row
-
-
-def extract_rows_from_pdfs(pdf_files) -> pd.DataFrame:
-    """
-    pdf_files: list of uploaded PDFs. First is the primary sticker/order PDF;
-    any additional ones only contribute their Order ID (concatenated onto
-    the primary row's Order_ID) — mirrors the original V3 app's behaviour
-    for multi-order jobs.
-    """
+    pdf_files = st.file_uploader(
+        "Upload PEPCO PDF (add more files after the first just to pull in extra Order IDs)",
+        type=["pdf"], accept_multiple_files=True, key="pdf_uploader",
+    )
     if not pdf_files:
-        return pd.DataFrame()
+        st.info("Upload a PDF to continue.")
+        st.stop()
 
-    primary, others = pdf_files[0], pdf_files[1:]
-    extra_ids = []
-    for f in others:
-        oid = extract_order_id_only(f)
-        if oid:
-            extra_ids.append(oid)
+    if "pdf_extracted_df" not in st.session_state or st.session_state.get("pdf_uploader_names") != [f.name for f in pdf_files]:
+        with st.spinner("Extracting data from PDF..."):
+            extracted_df = extractor.extract_rows_from_pdfs(pdf_files)
+        if extracted_df.empty:
+            st.error("Couldn't extract data from this PDF — check it's the right file type.")
+            st.stop()
+        st.session_state["pdf_extracted_df"] = extracted_df
+        st.session_state["pdf_uploader_names"] = [f.name for f in pdf_files]
 
-    row = extract_row_from_pdf(primary, extra_order_ids="+".join(extra_ids))
-    if row is None:
-        return pd.DataFrame()
-    return pd.DataFrame([row])
+    st.subheader("✏️ Review & correct extracted data")
+    st.caption("Every field is editable — fix anything the extractor got wrong or left blank before generating.")
+    corrected_df = st.data_editor(
+        st.session_state["pdf_extracted_df"],
+        use_container_width=True,
+        num_rows="fixed",
+        key="pdf_data_editor",
+    )
+
+    st.subheader("🚀 Generate Labels")
+    gen_choice = st.radio("What to generate", ["Pad (full sheet)", "Inner only", "Outer only"], horizontal=True)
+    if st.button("Generate PDF", type="primary"):
+        rows = corrected_df.to_dict(orient="records")
+        with st.spinner("Generating..."):
+            if gen_choice == "Pad (full sheet)":
+                final_pdf = pad_label.generate_batch(rows)
+            elif gen_choice == "Inner only":
+                final_pdf = inner_label.generate_batch(rows)
+            else:
+                final_pdf = outer_label.generate_batch(rows)
+        st.success("Done!")
+        st.download_button(
+            "⬇️ Download PDF", data=final_pdf,
+            file_name=f"{gen_choice.split()[0].lower()}_labels.pdf", mime="application/pdf",
+        )
+
+    with st.expander("💾 Also download the extracted data as CSV (optional)"):
+        csv_bytes = corrected_df.to_csv(index=False, sep=";").encode("utf-8-sig")
+        st.download_button("Download CSV", data=csv_bytes, file_name="extracted_data.csv", mime="text/csv")
+
+    st.stop()
+
+# ============================================================================
+# FLOW B — existing Excel-upload flow (Inner / Outer / Pad, with the live
+# field position/font editor) — unchanged from before
+# ============================================================================
+MODES = {
+    "Inner (70x50mm)": inner_label,
+    "Outer (100x100mm)": outer_label,
+    "Pad (full sheet)": pad_label,
+}
+mode_name = st.radio("Choose what to generate", list(MODES.keys()), horizontal=True)
+mod = MODES[mode_name]
+TEMPLATE_PATH = mod.TEMPLATE_PATH
+CONFIG_PATH = mod.CONFIG_PATH
+load_field_config = mod.load_field_config
+
+st.caption(f"Template: `{os.path.relpath(TEMPLATE_PATH)}`  |  Config: `{os.path.relpath(CONFIG_PATH)}`")
+
+excel_file = st.file_uploader("Upload Excel data", type=["xlsx", "xls"], key=f"upload_{mode_name}")
+if not excel_file:
+    st.info("Upload an Excel file to continue (or use data/sample_data.xlsx to test).")
+    st.stop()
+
+df = pd.read_excel(excel_file)
+st.success(f"Loaded {len(df)} rows")
+with st.expander("📋 Excel data preview"):
+    st.dataframe(df, use_container_width=True)
+
+first_row = df.iloc[0].to_dict()
+
+# ---------------- Live field position / font size editor ----------------
+st.subheader("🎛️ Adjust position & font size")
+st.caption("x, y = position in points (top-left origin). font_size in points. "
+           "Change a value → preview updates instantly below. "
+           "fixed_text rows (labels the template itself doesn't print, e.g. pad's 'ITEM') "
+           "are shown read-only here — edit their x/y directly in the JSON if needed.")
+
+state_key = f"field_config_{mode_name}"
+if state_key not in st.session_state:
+    st.session_state[state_key] = load_field_config()
+
+FONT_OPTIONS = ["helv", "hebo", "heit", "cour", "tiro",
+                "arial", "arial_bold", "tahoma",
+                "helv_bold_oblique", "pepco_ovi"]
+
+editable_rows = []
+for f in st.session_state[state_key]:
+    editable_rows.append({
+        "name": f.get("name", f.get("text", "(fixed)")),
+        "type": f.get("type", "text"),
+        "x": float(f.get("x", 0)),
+        "y": float(f.get("y", 0)),
+        "font_size": float(f.get("font_size", 8)),
+        "font": f.get("font", "helv"),
+        "prefix": f.get("prefix", ""),
+    })
+edit_df = pd.DataFrame(editable_rows)
+
+edited = st.data_editor(
+    edit_df,
+    use_container_width=True,
+    disabled=["name", "type"],
+    hide_index=True,
+    key=f"field_editor_{mode_name}",
+    column_config={
+        "x": st.column_config.NumberColumn(step=1.0),
+        "y": st.column_config.NumberColumn(step=1.0),
+        "font_size": st.column_config.NumberColumn(step=0.5, min_value=1.0),
+        "font": st.column_config.SelectboxColumn(
+            options=FONT_OPTIONS,
+            help="helv=Helvetica, hebo=Helvetica-Bold, heit=Helvetica-Italic, "
+                 "cour=Courier, tiro=Times. arial/arial_bold/tahoma/helv_bold_oblique/"
+                 "pepco_ovi need a matching .ttf file in /fonts.",
+        ),
+    },
+)
+
+new_config = []
+for original, (_, row) in zip(st.session_state[state_key], edited.iterrows()):
+    updated = dict(original)
+    updated["x"] = float(row["x"])
+    updated["y"] = float(row["y"])
+    if updated.get("type") in ("text", "fixed_text"):
+        updated["font_size"] = float(row["font_size"])
+        updated["font"] = row["font"]
+        if updated.get("type") == "text":
+            updated["prefix"] = row["prefix"]
+    new_config.append(updated)
+st.session_state[state_key] = new_config
+
+col1, col2 = st.columns(2)
+with col1:
+    st.download_button(
+        "💾 Download updated field_mapping.json",
+        data=json.dumps(new_config, indent=2),
+        file_name=os.path.basename(CONFIG_PATH),
+        mime="application/json",
+    )
+with col2:
+    st.caption(f"⬆️ Download this and replace `{os.path.relpath(CONFIG_PATH)}` "
+               "in your GitHub repo to make changes permanent.")
+
+# ---------------- Live preview ----------------
+st.subheader("👁️ Live Preview (row 1)")
+if mode_name == "Pad (full sheet)":
+    st.caption("Pad composes the separately-generated Inner + Outer labels onto the blank "
+               "pad template — it always uses their last-saved configs. Edit Inner/Outer "
+               "position on their own tabs; edit header fields (Order ID, Item, Style Code, "
+               "Color) right here.")
+    # header fields use the live-edited config; inner/outer come from their saved configs
+    header_pdf = fill_single_label(TEMPLATE_PATH, first_row, new_config)
+    doc = fitz.open("pdf", header_pdf)
+    inner_bytes = inner_label.generate_single(first_row)
+    outer_bytes = outer_label.generate_single(first_row)
+    compose_pdf_into_rect(doc, 0, pad_label.INNER_RECT, inner_bytes)
+    compose_pdf_into_rect(doc, 0, pad_label.OUTER_RECT, outer_bytes)
+    preview_bytes = doc.tobytes()
+    doc.close()
+else:
+    preview_bytes = fill_single_label(TEMPLATE_PATH, first_row, new_config)
+    doc = fitz.open("pdf", preview_bytes)
+
+doc = fitz.open("pdf", preview_bytes)
+zoom = 5 if mode_name != "Pad (full sheet)" else 2
+pix = doc[0].get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+st.image(pix.tobytes("png"), width=550 if mode_name != "Pad (full sheet)" else 900)
+doc.close()
+
+# ---------------- Generate all ----------------
+st.subheader(f"🚀 Generate All ({mode_name})")
+if st.button("Generate PDF", type="primary", key=f"generate_{mode_name}"):
+    rows = df.to_dict(orient="records")
+    with st.spinner(f"Generating {len(rows)} labels..."):
+        if mode_name == "Pad (full sheet)":
+            # save the live-edited header config first so the batch run picks it up
+            with open(CONFIG_PATH, "w") as f:
+                json.dump(new_config, f, indent=2)
+            final_pdf = pad_label.generate_batch(rows)
+        else:
+            final_pdf = generate_multipage_pdf(TEMPLATE_PATH, rows, new_config)
+    st.success(f"Done — {len(rows)} labels generated.")
+    st.download_button(
+        "⬇️ Download PDF",
+        data=final_pdf,
+        file_name=f"{mode_name.split()[0].lower()}_labels.pdf",
+        mime="application/pdf",
+    )
