@@ -8,10 +8,9 @@ import labels.pad_label as pad_label
 import extractor
 
 st.set_page_config(page_title="PEPCO Label Automation", layout="wide")
-st.title("🏷️ PEPCO Label Automation")
+st.title("PEPCO Label Automation")
 
-st.caption("Upload the PEPCO order/tech-pack PDF — data is pulled out automatically. "
-           "Fix anything wrong in the table, then generate.")
+st.caption("Upload PEPCO order/PO PDF")
 
 pdf_files = st.file_uploader(
     "Upload PEPCO PDF (add more files after the first just to pull in extra Order IDs)",
