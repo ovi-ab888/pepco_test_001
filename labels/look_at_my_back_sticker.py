@@ -2,7 +2,7 @@
 labels/look_at_my_back_sticker.py
 Look at my back Sticker label generation logic.
 Uses the same header field mapping as pad_label.py (pad_header_mapping.json)
-but applies it to the Look_at_my_back_Sticker.pdf template.
+but applies it to the Look_at_my back_Sticker.pdf template.
 """
 import os
 import json
@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from engine.label_engine import fill_single_label, generate_multipage_pdf
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
-TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Look_at_my_back_Sticker.pdf")
+TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Look_at_my back_Sticker.pdf")
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "pad_header_mapping.json")
 
 
