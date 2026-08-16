@@ -74,9 +74,7 @@ st.subheader("🖨️ Select Label Types to Generate")
 
 # লেবেল টাইপের নাম ও সংশ্লিষ্ট ফাংশনের ম্যাপিং
 label_options = {
-    "Inner & Outer Sticker (i/o Pad)": pad_label.generate_batch,
-    "Inner": inner_label.generate_batch,
-    "Outer": outer_label.generate_batch,
+    "Inner & Outer Sticker": pad_label.generate_batch,
     "2-Pieces-Set": pieces_label.generate_batch,
     "Additional Care Instruction Tag": care_tag_label.generate_batch,
     "Look at my back Sticker": back_sticker_label.generate_batch,
