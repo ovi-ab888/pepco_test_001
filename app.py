@@ -4,6 +4,8 @@ sys.path.append(os.path.dirname(__file__))
 
 import streamlit as st
 import pandas as pd
+import io
+import zipfile
 
 # সব লেবেল জেনারেটর মডিউল ইমপোর্ট করুন
 import labels.pad_label as pad_label
@@ -66,61 +68,83 @@ corrected_df = st.data_editor(
 )
 
 # -------------------------------
-# 4. লেবেল টাইপ সিলেক্ট ও জেনারেশন
+# 4. লেবেল টাইপ সিলেক্ট ও জেনারেশন (আপডেটেড)
 # -------------------------------
-st.subheader("🖨️ Generate Layout")
+st.subheader("🖨️ Select Label Types to Generate")
 
-label_type = st.radio(
-    "Select Label Type",
-    [
-        "Pad",
-        "Inner",
-        "Outer",
-        "2-Pieces-Set",
-        "Additional Care Instruction Tag",
-        "Look at my back Sticker",
-        "Two Packs"
-    ],
-    horizontal=True,
-    index=0,
-)
+# লেবেল টাইপের নাম ও সংশ্লিষ্ট ফাংশনের ম্যাপিং
+label_options = {
+    "Inner & Outer Sticker (i/o Pad)": pad_label.generate_batch,
+    "Inner": inner_label.generate_batch,
+    "Outer": outer_label.generate_batch,
+    "2-Pieces-Set": pieces_label.generate_batch,
+    "Additional Care Instruction Tag": care_tag_label.generate_batch,
+    "Look at my back Sticker": back_sticker_label.generate_batch,
+    "Two Packs": two_packs_label.generate_batch,
+}
 
-if st.button("🚀 Generate PDF", type="primary"):
+# চেকবক্সের মাধ্যমে একাধিক সিলেক্ট করার অপশন
+selected_labels = []
+cols = st.columns(3)  # ৩ কলামে সাজানো
+for i, (label_name, _) in enumerate(label_options.items()):
+    with cols[i % 3]:
+        if st.checkbox(label_name, key=f"chk_{i}"):
+            selected_labels.append(label_name)
+
+if not selected_labels:
+    st.info("☝️ Please select at least one label type to generate.")
+
+# জেনারেট বাটন
+if selected_labels and st.button("🚀 Generate Selected Labels", type="primary"):
     rows = corrected_df.to_dict(orient="records")
-
-    with st.spinner(f"⏳ Generating {label_type} label(s)..."):
-        # টাইপ অনুযায়ী সঠিক ফাংশন কল
-        if label_type == "Pad":
-            final_pdf = pad_label.generate_batch(rows)
-        elif label_type == "Inner":
-            final_pdf = inner_label.generate_batch(rows)
-        elif label_type == "Outer":
-            final_pdf = outer_label.generate_batch(rows)
-        elif label_type == "2-Pieces-Set":
-            final_pdf = pieces_label.generate_batch(rows)
-        elif label_type == "Additional Care Instruction Tag":
-            final_pdf = care_tag_label.generate_batch(rows)
-        elif label_type == "Look at my back Sticker":
-            final_pdf = back_sticker_label.generate_batch(rows)
-        else:  # Two Packs
-            final_pdf = two_packs_label.generate_batch(rows)
-
-    st.success("✅ Done! Your PDF is ready for download.")
-
-    filename_row = dict(st.session_state["pdf_filename_row"])
-    filename_row.update(rows[0])
-    download_name = extractor.build_filename(filename_row, extension="pdf")
-
-    st.download_button(
-        "⬇️ Download PDF",
-        data=final_pdf,
-        file_name=download_name,
-        mime="application/pdf",
-        use_container_width=True,
-    )
+    
+    with st.spinner(f"⏳ Generating {len(selected_labels)} label type(s)..."):
+        # জিপ ফাইল তৈরি
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for label_name in selected_labels:
+                # সংশ্লিষ্ট ফাংশন খুঁজে বের করা
+                generate_func = label_options[label_name]
+                
+                # লেবেল জেনারেট করা
+                pdf_bytes = generate_func(rows)
+                
+                # ফাইল নাম তৈরি
+                filename_row = dict(st.session_state["pdf_filename_row"])
+                filename_row.update(rows[0])
+                base_filename = extractor.build_filename(filename_row, extension="pdf")
+                
+                # লেবেল টাইপ অনুযায়ী নাম পরিবর্তন
+                if label_name == "Inner & Outer Sticker (i/o Pad)":
+                    final_filename = base_filename.replace(".pdf", "_Inner_Outer_Pad.pdf")
+                elif label_name == "Inner":
+                    final_filename = base_filename.replace(".pdf", "_Inner.pdf")
+                elif label_name == "Outer":
+                    final_filename = base_filename.replace(".pdf", "_Outer.pdf")
+                else:
+                    # স্পেস ও স্পেশাল ক্যারেক্টার প্রতিস্থাপন
+                    clean_name = label_name.replace(" ", "_").replace("&", "and")
+                    final_filename = base_filename.replace(".pdf", f"_{clean_name}.pdf")
+                
+                # জিপে যোগ করা
+                zip_file.writestr(final_filename, pdf_bytes)
+        
+        zip_buffer.seek(0)
+        
+        # সফল বার্তা
+        st.success(f"✅ Done! {len(selected_labels)} label type(s) generated and packaged in a ZIP file.")
+        
+        # জিপ ফাইল ডাউনলোড
+        st.download_button(
+            "⬇️ Download All Labels (ZIP)",
+            data=zip_buffer,
+            file_name=f"PEPCO_Labels_{extractor.build_filename(filename_row, extension='').replace('.', '_')}.zip",
+            mime="application/zip",
+            use_container_width=True,
+        )
 
 # -------------------------------
-# 5. CSV ডাউনলোড
+# 5. CSV ডাউনলোড (অপরিবর্তিত)
 # -------------------------------
 with st.expander("💾 Also download the extracted data as CSV (optional)"):
     csv_bytes = corrected_df.to_csv(index=False, sep=";").encode("utf-8-sig")
