@@ -1,8 +1,8 @@
 """
 labels/two_packs.py
-Two Packs label generation logic.
+Two Packs Sticker label generation logic.
 Uses the same header field mapping as pad_label.py (pad_header_mapping.json)
-but applies it to the Two_Packs.pdf template.
+but applies it to the Two_Packs_Sticker.pdf template.
 """
 import os
 import json
@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from engine.label_engine import fill_single_label, generate_multipage_pdf
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
-TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Two_Packs.pdf")
+TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Two_Packs_Sticker.pdf")
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "pad_header_mapping.json")
 
 
@@ -24,7 +24,7 @@ def load_field_config():
 
 def generate_single(row: dict) -> bytes:
     """
-    Generate a single Two Packs label from one Excel row.
+    Generate a single Two Packs Sticker label from one Excel row.
     
     Args:
         row: Dictionary containing the data for one label.
@@ -38,7 +38,7 @@ def generate_single(row: dict) -> bytes:
 
 def generate_batch(rows: list) -> bytes:
     """
-    Generate multiple Two Packs labels from a list of Excel rows.
+    Generate multiple Two Packs Sticker labels from a list of Excel rows.
     
     Args:
         rows: List of dictionaries, each representing one label's data.
