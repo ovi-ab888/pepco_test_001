@@ -71,7 +71,7 @@ st.subheader("🖨️ Generate Layout")
 # লেবেল টাইপ নির্বাচন
 label_type = st.radio(
     "Select Label Type",
-    ["Pad", "Inner", "Outer", "2-Pieces-Set"],
+    ["Pad", "Inner", "Outer", "2_Pieces_Set.pdf"],
     horizontal=True,
     index=0,
 )
