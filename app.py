@@ -68,7 +68,7 @@ corrected_df = st.data_editor(
 )
 
 # -------------------------------
-# 4. লেবেল টাইপ সিলেক্ট ও জেনারেশন (আপডেটেড)
+# 4. লেবেল টাইপ সিলেক্ট ও জেনারেশন
 # -------------------------------
 st.subheader("🖨️ Select Label Types to Generate")
 
@@ -80,12 +80,12 @@ label_options = {
     "2-Pieces-Set": pieces_label.generate_batch,
     "Additional Care Instruction Tag": care_tag_label.generate_batch,
     "Look at my back Sticker": back_sticker_label.generate_batch,
-    "Two Packs": two_packs_label.generate_batch,
+    "Two Packs Sticker": two_packs_label.generate_batch,  # নাম পরিবর্তন করা হয়েছে
 }
 
 # চেকবক্সের মাধ্যমে একাধিক সিলেক্ট করার অপশন
 selected_labels = []
-cols = st.columns(3)  # ৩ কলামে সাজানো
+cols = st.columns(3)
 for i, (label_name, _) in enumerate(label_options.items()):
     with cols[i % 3]:
         if st.checkbox(label_name, key=f"chk_{i}"):
@@ -99,17 +99,15 @@ if selected_labels and st.button("🚀 Generate Selected Labels", type="primary"
     rows = corrected_df.to_dict(orient="records")
     
     with st.spinner(f"⏳ Generating {len(selected_labels)} label type(s)..."):
-        # জিপ ফাইল তৈরি
+        import io
+        import zipfile
+        
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             for label_name in selected_labels:
-                # সংশ্লিষ্ট ফাংশন খুঁজে বের করা
                 generate_func = label_options[label_name]
-                
-                # লেবেল জেনারেট করা
                 pdf_bytes = generate_func(rows)
                 
-                # ফাইল নাম তৈরি
                 filename_row = dict(st.session_state["pdf_filename_row"])
                 filename_row.update(rows[0])
                 base_filename = extractor.build_filename(filename_row, extension="pdf")
@@ -122,19 +120,15 @@ if selected_labels and st.button("🚀 Generate Selected Labels", type="primary"
                 elif label_name == "Outer":
                     final_filename = base_filename.replace(".pdf", "_Outer.pdf")
                 else:
-                    # স্পেস ও স্পেশাল ক্যারেক্টার প্রতিস্থাপন
                     clean_name = label_name.replace(" ", "_").replace("&", "and")
                     final_filename = base_filename.replace(".pdf", f"_{clean_name}.pdf")
                 
-                # জিপে যোগ করা
                 zip_file.writestr(final_filename, pdf_bytes)
         
         zip_buffer.seek(0)
         
-        # সফল বার্তা
         st.success(f"✅ Done! {len(selected_labels)} label type(s) generated and packaged in a ZIP file.")
         
-        # জিপ ফাইল ডাউনলোড
         st.download_button(
             "⬇️ Download All Labels (ZIP)",
             data=zip_buffer,
