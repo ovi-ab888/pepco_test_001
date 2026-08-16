@@ -9,7 +9,7 @@ import pandas as pd
 import labels.pad_label as pad_label
 import labels.inner_label as inner_label
 import labels.outer_label as outer_label
-import labels._2_pieces_set as pieces_label  # নতুন টেমপ্লেট
+import labels.two_pieces_set as pieces_label  # নতুন টেমপ্লেট
 import extractor
 
 # পেজ কনফিগারেশন
