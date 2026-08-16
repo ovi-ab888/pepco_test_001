@@ -5,11 +5,14 @@ sys.path.append(os.path.dirname(__file__))
 import streamlit as st
 import pandas as pd
 
-# লেবেল জেনারেটর মডিউলগুলো ইমপোর্ট করুন
+# সব লেবেল জেনারেটর মডিউল ইমপোর্ট করুন
 import labels.pad_label as pad_label
 import labels.inner_label as inner_label
 import labels.outer_label as outer_label
-import labels.two_pieces_set as pieces_label  # নতুন টেমপ্লেট
+import labels.two_pieces_set as pieces_label
+import labels.additional_care_instruction_tag as care_tag_label
+import labels.look_at_my_back_sticker as back_sticker_label
+import labels.two_packs as two_packs_label
 import extractor
 
 # পেজ কনফিগারেশন
@@ -32,7 +35,7 @@ if not pdf_files:
     st.stop()
 
 # -------------------------------
-# 2. ডেটা এক্সট্রাকশন (শুধুমাত্র নতুন ফাইল আপলোড করলে)
+# 2. ডেটা এক্সট্রাকশন
 # -------------------------------
 if (
     "pdf_extracted_df" not in st.session_state
@@ -45,13 +48,12 @@ if (
         st.error("❌ Couldn't extract data from this PDF — check it's the right file type.")
         st.stop()
 
-    # ফাইল নামের জন্য আলাদা করে রাখা (ইউজারকে দেখানো হবে না)
     st.session_state["pdf_filename_row"] = extracted_df.iloc[0].to_dict()
     st.session_state["pdf_extracted_df"] = extracted_df.drop(columns=["_temp_sku_for_filename"])
     st.session_state["pdf_uploader_names"] = [f.name for f in pdf_files]
 
 # -------------------------------
-# 3. ডেটা এডিটর (ইউজার সংশোধন করতে পারবে)
+# 3. ডেটা এডিটর
 # -------------------------------
 st.subheader("✏️ Review & correct extracted data")
 st.caption("Every field is editable — fix anything the extractor got wrong.")
@@ -68,10 +70,17 @@ corrected_df = st.data_editor(
 # -------------------------------
 st.subheader("🖨️ Generate Layout")
 
-# লেবেল টাইপ নির্বাচন
 label_type = st.radio(
     "Select Label Type",
-    ["Pad", "Inner", "Outer", "2_Pieces_Set.pdf"],
+    [
+        "Pad",
+        "Inner",
+        "Outer",
+        "2-Pieces-Set",
+        "Additional Care Instruction Tag",
+        "Look at my back Sticker",
+        "Two Packs"
+    ],
     horizontal=True,
     index=0,
 )
@@ -87,17 +96,21 @@ if st.button("🚀 Generate PDF", type="primary"):
             final_pdf = inner_label.generate_batch(rows)
         elif label_type == "Outer":
             final_pdf = outer_label.generate_batch(rows)
-        else:  # 2-Pieces-Set
+        elif label_type == "2-Pieces-Set":
             final_pdf = pieces_label.generate_batch(rows)
+        elif label_type == "Additional Care Instruction Tag":
+            final_pdf = care_tag_label.generate_batch(rows)
+        elif label_type == "Look at my back Sticker":
+            final_pdf = back_sticker_label.generate_batch(rows)
+        else:  # Two Packs
+            final_pdf = two_packs_label.generate_batch(rows)
 
     st.success("✅ Done! Your PDF is ready for download.")
 
-    # ফাইল নাম তৈরি
     filename_row = dict(st.session_state["pdf_filename_row"])
-    filename_row.update(rows[0])  # যেকোনো করেকশন ফাইলনেমে আপডেট করবে
+    filename_row.update(rows[0])
     download_name = extractor.build_filename(filename_row, extension="pdf")
 
-    # ডাউনলোড বাটন
     st.download_button(
         "⬇️ Download PDF",
         data=final_pdf,
@@ -107,7 +120,7 @@ if st.button("🚀 Generate PDF", type="primary"):
     )
 
 # -------------------------------
-# 5. (অপশনাল) CSV ডাউনলোড
+# 5. CSV ডাউনলোড
 # -------------------------------
 with st.expander("💾 Also download the extracted data as CSV (optional)"):
     csv_bytes = corrected_df.to_csv(index=False, sep=";").encode("utf-8-sig")
@@ -123,8 +136,5 @@ with st.expander("💾 Also download the extracted data as CSV (optional)"):
         use_container_width=True,
     )
 
-# -------------------------------
-# 6. ফুটার/ইনফো
-# -------------------------------
 st.divider()
 st.caption("💡 Tip: You can edit any field in the table above before generating the label.")
