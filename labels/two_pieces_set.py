@@ -12,7 +12,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from engine.label_engine import fill_single_label, generate_multipage_pdf
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
-TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "two_pieces_set")
+TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "two_pieces_set.pdf")  # <-- এক্সটেনশন যোগ করুন
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "pad_header_mapping.json")
 
 
