@@ -203,6 +203,18 @@ def extract_row_from_pdf(file, extra_order_ids: str = "") -> dict | None:
 
     colour = _extract_colour(pages_text)
 
+    # 8-digit SKUs across all pages, deduped, joined with "_" — used only for
+    # the download filename (matches the original V3 CSV-download naming).
+    skus = []
+    for txt in pages_text:
+        skus.extend(re.findall(r"\b\d{8}\b", txt))
+    seen_sku, unique_skus = set(), []
+    for s in skus:
+        if s not in seen_sku:
+            seen_sku.add(s)
+            unique_skus.append(s)
+    sku_for_filename = "_".join(unique_skus) if unique_skus else "UNKNOWN"
+
     row = {
         "Order_ID": (order_id.group(1).strip() if order_id else "") + (f"+{extra_order_ids}" if extra_order_ids else ""),
         "Style": style_code.group() if style_code else "",
@@ -220,6 +232,7 @@ def extract_row_from_pdf(file, extra_order_ids: str = "") -> dict | None:
         "Season_st": season_st,
         "Inner_qty": inner_qty,
         "Outer_qty": outer_qty,
+        "_temp_sku_for_filename": sku_for_filename,
     }
     for i in range(7):
         row[f"TC_Number_st{i+1}"] = all_tc_numbers[i] if i < len(all_tc_numbers) else ""
@@ -229,12 +242,28 @@ def extract_row_from_pdf(file, extra_order_ids: str = "") -> dict | None:
     return row
 
 
+def build_filename(row: dict, extension: str = "pdf") -> str:
+    """
+    Same naming pattern as the original V3 app's CSV download:
+    PEPCO_{SEASON}_{SKUs}_Sticker {SUPPLIER_CODE}_00_{STYLE}.{extension}
+    row must still have "_temp_sku_for_filename" (i.e. call this before
+    dropping that column from the dataframe).
+    """
+    season_val = str(row.get("Season", "UNKNOWN")).upper() or "UNKNOWN"
+    sku = row.get("_temp_sku_for_filename", "UNKNOWN")
+    supplier_code = row.get("Supplier_product_code", "UNKNOWN")
+    style_val = row.get("Style", "UNKNOWN")
+    return f"PEPCO_{season_val}_{sku}_Sticker {supplier_code}_00_{style_val}.{extension}"
+
+
 def extract_rows_from_pdfs(pdf_files) -> pd.DataFrame:
     """
     pdf_files: list of uploaded PDFs. First is the primary sticker/order PDF;
     any additional ones only contribute their Order ID (concatenated onto
     the primary row's Order_ID) — mirrors the original V3 app's behaviour
-    for multi-order jobs.
+    for multi-order jobs. The returned DataFrame includes the hidden
+    "_temp_sku_for_filename" column — drop it before showing/editing, use it
+    via build_filename() before dropping.
     """
     if not pdf_files:
         return pd.DataFrame()
