@@ -110,11 +110,21 @@ if selected_labels and st.button("🚀 Generate Selected Labels", type="primary"
                 pdf_bytes = generate_func(rows)
 
                 base_filename = extractor.build_filename(filename_row, extension="pdf")
-                if label_name == "Inner & Outer Sticker":
-                    final_filename = base_filename.replace(".pdf", "_Inner_Outer_Pad.pdf")
-                else:
-                    clean_name = label_name.replace(" ", "_").replace("&", "and")
-                    final_filename = base_filename.replace(".pdf", f"_{clean_name}.pdf")
+
+                label_filename_map = {
+                    "Inner & Outer Sticker": "Inner_Outer_Pad",
+                    "2-Pieces-Set": "2-Pieces-Set",
+                    "Additional Care Instruction Tag": "Additional_Care_Instruction_Tag",
+                    "Look at my back Sticker": "Look_at_my_back_Sticker",
+                    "Two Packs Sticker": "Two_Packs_Sticker",
+                }
+
+                file_label = label_filename_map.get(
+                    label_name,
+                    label_name.replace(" ", "_").replace("&", "and")
+                )
+
+                final_filename = base_filename.replace(".pdf", f"_{file_label}.pdf")
 
                 zip_file.writestr(final_filename, pdf_bytes)
 
