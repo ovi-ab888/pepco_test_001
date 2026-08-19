@@ -121,7 +121,14 @@ if selected_labels and st.button("🚀 Generate Selected Labels", type="primary"
         zip_buffer.seek(0)
 
     st.success(f"✅ Done! {len(selected_labels)} label type(s) generated and packaged in a ZIP file.")
-    zip_name = "PEPCO_Labels_" + extractor.build_filename(filename_row, extension="").rstrip(".").replace(".", "_") + ".zip"
+    supplier_product_code = str(
+    filename_row.get("Supplier_product_code", "")
+).strip()
+
+if not supplier_product_code:
+    supplier_product_code = "PEPCO_Labels"
+
+zip_name = f"{supplier_product_code}.zip"
     st.download_button(
         "⬇️ Download All Labels (ZIP)",
         data=zip_buffer,
