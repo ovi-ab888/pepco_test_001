@@ -89,11 +89,11 @@ label_options = {
 
 # PDF filename-এর জন্য label name mapping
 label_filename_map = {
-    "Inner & Outer Sticker": "Inner_Outer_Pad",
-    "2-Pieces-Set": "2-Pieces-Set",
-    "Additional Care Instruction Tag": "Additional_Care_Instruction_Tag",
-    "Look at my back Sticker": "Look_at_my_back_Sticker",
-    "Two Packs Sticker": "Two_Packs_Sticker",
+    "Inner & Outer Sticker": "Inner & Outer Sticker",
+    "2-Pieces-Set": "2 Pieces Set",
+    "Additional Care Instruction Tag": "Additional Care_Instruction Tag",
+    "Look at my back Sticker": "Look at my back Sticker",
+    "Two Packs Sticker": "2Packs Sticker",
 }
 
 selected_labels = []
