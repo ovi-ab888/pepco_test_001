@@ -87,8 +87,18 @@ label_options = {
     "Two Packs Sticker": two_packs_label.generate_batch,
 }
 
+# PDF filename-এর জন্য label name mapping
+label_filename_map = {
+    "Inner & Outer Sticker": "Inner_Outer_Pad",
+    "2-Pieces-Set": "2-Pieces-Set",
+    "Additional Care Instruction Tag": "Additional_Care_Instruction_Tag",
+    "Look at my back Sticker": "Look_at_my_back_Sticker",
+    "Two Packs Sticker": "Two_Packs_Sticker",
+}
+
 selected_labels = []
 cols = st.columns(3)
+
 for i, (label_name, _) in enumerate(label_options.items()):
     with cols[i % 3]:
         if st.checkbox(label_name, key=f"chk_{i}"):
@@ -99,39 +109,55 @@ if not selected_labels:
 
 if selected_labels and st.button("🚀 Generate Selected Labels", type="primary"):
     rows = corrected_df.to_dict(orient="records")
+
     with st.spinner(f"⏳ Generating {len(selected_labels)} label type(s)..."):
         zip_buffer = io.BytesIO()
+
         filename_row = dict(st.session_state.get("pdf_filename_row", {}))
         filename_row.update(rows[0])
 
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        with zipfile.ZipFile(
+            zip_buffer,
+            "w",
+            zipfile.ZIP_DEFLATED
+        ) as zip_file:
+
             for label_name in selected_labels:
                 generate_func = label_options[label_name]
                 pdf_bytes = generate_func(rows)
 
-                base_filename = extractor.build_filename(filename_row, extension="pdf")
-
-                label_filename_map = {
-                    "Inner & Outer Sticker": "Inner_Outer_Pad",
-                    "2-Pieces-Set": "2-Pieces-Set",
-                    "Additional Care Instruction Tag": "Additional_Care_Instruction_Tag",
-                    "Look at my back Sticker": "Look_at_my_back_Sticker",
-                    "Two Packs Sticker": "Two_Packs_Sticker",
-                }
-
+                # Label অনুযায়ী filename
                 file_label = label_filename_map.get(
                     label_name,
                     label_name.replace(" ", "_").replace("&", "and")
                 )
 
-                final_filename = base_filename.replace(".pdf", f"_{file_label}.pdf")
+                # Base filename তৈরি
+                base_filename = extractor.build_filename(
+                    filename_row,
+                    extension="pdf"
+                )
 
-                zip_file.writestr(final_filename, pdf_bytes)
+                # Common "Sticker" বাদ দিয়ে selected label name বসানো
+                base_filename = base_filename.replace(
+                    "_Sticker ",
+                    f"_{file_label} "
+                )
+
+                zip_file.writestr(
+                    base_filename,
+                    pdf_bytes
+                )
 
         zip_buffer.seek(0)
 
-    st.success(f"✅ Done! {len(selected_labels)} label type(s) generated and packaged in a ZIP file.")
+    st.success(
+        f"✅ Done! {len(selected_labels)} label type(s) generated and packaged in a ZIP file."
+    )
+
+    # ZIP filename = Supplier_product_code
     zip_name = f"{str(filename_row.get('Supplier_product_code', '')).strip() or 'PEPCO_Labels'}.zip"
+
     st.download_button(
         "⬇️ Download All Labels (ZIP)",
         data=zip_buffer,
