@@ -7,10 +7,12 @@ import pandas as pd
 import io
 import zipfile
 
+import theme
 import auth
 
 # পেজ কনফিগারেশন
 st.set_page_config(page_title="PEPCO Label Automation", layout="wide")
+theme.load_css()  # login page-ও এই style পাবে
 
 # -------------------------------
 # 0. লগইন চেক (সবার আগে)
@@ -30,28 +32,7 @@ import labels.look_at_my_back_sticker as back_sticker_label
 import labels.two_packs as two_packs_label
 import extractor
 
-st.title("📦 PEPCO Label Automation")
-st.caption("Upload PEPCO order/PO PDF and generate labels effortlessly.")
-
-# Pink-bordered look for the dropdown (expander) section headers
-st.markdown(
-    """
-    <style>
-    div[data-testid="stExpander"] details {
-        border: 2px solid #E6007E !important;
-        border-radius: 14px !important;
-    }
-    div[data-testid="stExpander"] summary {
-        font-size: 19px !important;
-        padding: 10px 18px !important;
-    }
-    div[data-testid="stExpander"] summary svg {
-        fill: #E6007E !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+theme.main_header("📦 PEPCO Label Automation", "Upload PEPCO order/PO PDF and generate labels effortlessly.")
 
 
 # -------------------------------
