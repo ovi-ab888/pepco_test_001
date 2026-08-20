@@ -82,12 +82,22 @@ corrected_df = st.data_editor(
 st.subheader("🖨️ Select Label Types to Generate")
 
 label_options = {
-    "Inner & Outer Sticker": pad_label.generate_batch,
-    "2-Pieces-Set": pieces_label.generate_batch,
-    "Additional Care Instruction Tag": care_tag_label.generate_batch,
-    "Look at my back Sticker": back_sticker_label.generate_batch,
-    "Two Packs Sticker": two_packs_label.generate_batch,
+    "Inner & Outer Sticker": pad_label,
+    "2-Pieces-Set": pieces_label,
+    "Additional Care Instruction Tag": care_tag_label,
+    "Look at my back Sticker": back_sticker_label,
+    "Two Packs Sticker": two_packs_label,
 }
+
+
+def _template_name_for(module) -> str:
+    """The actual template PDF filename (no extension) this label module uses
+    — e.g. 'pad' for templates/pad.pdf. Falls back to 'Sticker' if the module
+    doesn't expose TEMPLATE_PATH yet."""
+    path = getattr(module, "TEMPLATE_PATH", None)
+    if not path:
+        return "Sticker"
+    return os.path.splitext(os.path.basename(path))[0]
 
 # ---- Section 1: Benefite Tag and Sticker (LIVE — works today) ----
 selected_labels = []
@@ -135,15 +145,13 @@ if selected_labels and st.button("🚀 Generate Selected Labels", type="primary"
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             for label_name in selected_labels:
-                generate_func = label_options[label_name]
-                pdf_bytes = generate_func(rows)
+                module = label_options[label_name]
+                pdf_bytes = module.generate_batch(rows)
 
-                base_filename = extractor.build_filename(filename_row, extension="pdf")
-                if label_name == "Inner & Outer Sticker":
-                    final_filename = base_filename.replace(".pdf", "_Inner_Outer_Pad.pdf")
-                else:
-                    clean_name = label_name.replace(" ", "_").replace("&", "and")
-                    final_filename = base_filename.replace(".pdf", f"_{clean_name}.pdf")
+                template_name = _template_name_for(module)
+                final_filename = extractor.build_filename(
+                    filename_row, extension="pdf", template_name=template_name
+                )
 
                 zip_file.writestr(final_filename, pdf_bytes)
         zip_buffer.seek(0)
