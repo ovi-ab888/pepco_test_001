@@ -153,8 +153,7 @@ def extract_row_from_pdf(file, extra_order_ids: str = "") -> dict | None:
     """
     file: an uploaded PDF (file-like, .read() available).
     Returns one row dict with exactly the columns the label engine expects,
-    or None (with the reason left to the caller to surface) if extraction
-    fails outright (e.g. not a valid PDF).
+    or None if extraction fails outright (e.g. not a valid PDF).
     """
     raw = file.read()
     if not raw:
@@ -242,10 +241,16 @@ def extract_row_from_pdf(file, extra_order_ids: str = "") -> dict | None:
     return row
 
 
-def build_filename(row: dict, extension: str = "pdf") -> str:
+def build_filename(row: dict, extension: str = "pdf", template_name: str = "Sticker") -> str:
     """
-    Same naming pattern as the original V3 app's CSV download:
-    PEPCO_{SEASON}_{SKUs}_Sticker {SUPPLIER_CODE}_00_{STYLE}.{extension}
+    Filename pattern:
+    PEPCO_{SEASON}_{SKUs}_{TEMPLATE_NAME}_{SUPPLIER_CODE}_00_{STYLE}.{extension}
+
+    template_name = the actual template PDF's filename (without extension)
+    from the templates/ folder that this label type uses — e.g. "pad" for
+    templates/pad.pdf. Falls back to "Sticker" if not given, for backward
+    compatibility with any old caller that doesn't pass it.
+
     row must still have "_temp_sku_for_filename" (i.e. call this before
     dropping that column from the dataframe).
     """
@@ -253,7 +258,7 @@ def build_filename(row: dict, extension: str = "pdf") -> str:
     sku = row.get("_temp_sku_for_filename", "UNKNOWN")
     supplier_code = row.get("Supplier_product_code", "UNKNOWN")
     style_val = row.get("Style", "UNKNOWN")
-    return f"PEPCO_{season_val}_{sku}_Sticker {supplier_code}_00_{style_val}.{extension}"
+    return f"PEPCO_{season_val}_{sku}_{template_name}_{supplier_code}_00_{style_val}.{extension}"
 
 
 def extract_rows_from_pdfs(pdf_files) -> pd.DataFrame:
