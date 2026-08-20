@@ -33,23 +33,25 @@ import extractor
 st.title("📦 PEPCO Label Automation")
 st.caption("Upload PEPCO order/PO PDF and generate labels effortlessly.")
 
-
-def section_header(title: str, show_arrow: bool = True):
-    """Pink rounded-box section header, matching the design mockup."""
-    arrow_html = (
-        '<span style="font-size:22px; color:#E6007E;">&#8595;</span>' if show_arrow else ""
-    )
-    st.markdown(
-        f"""
-        <div style="border:2px solid #E6007E; border-radius:14px; padding:14px 22px;
-                    margin:22px 0 12px 0; display:flex; justify-content:space-between;
-                    align-items:center;">
-            <span style="font-size:19px; color:#111;">{title}</span>
-            {arrow_html}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+# Pink-bordered look for the dropdown (expander) section headers
+st.markdown(
+    """
+    <style>
+    div[data-testid="stExpander"] details {
+        border: 2px solid #E6007E !important;
+        border-radius: 14px !important;
+    }
+    div[data-testid="stExpander"] summary {
+        font-size: 19px !important;
+        padding: 10px 18px !important;
+    }
+    div[data-testid="stExpander"] summary svg {
+        fill: #E6007E !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 # -------------------------------
@@ -107,36 +109,35 @@ label_options = {
 }
 
 # ---- Section 1: Benefite Tag and Sticker (LIVE — works today) ----
-section_header("Benefite Tag and Sticker", show_arrow=False)
-
 selected_labels = []
-cols = st.columns(4)
-for i, (label_name, _) in enumerate(label_options.items()):
-    with cols[i % 4]:
-        if st.checkbox(label_name, key=f"chk_{i}"):
-            selected_labels.append(label_name)
+with st.expander("Benefite Tag and Sticker", expanded=True):
+    cols = st.columns(4)
+    for i, (label_name, _) in enumerate(label_options.items()):
+        with cols[i % 4]:
+            if st.checkbox(label_name, key=f"chk_{i}"):
+                selected_labels.append(label_name)
 
 # ---- Section 2: Size Tag (UI ONLY — not wired up yet) ----
-section_header("Size Tag")
-c1, c2, c3, c4 = st.columns(4)
-c1.selectbox("Select Type", [""], key="size_type", disabled=True)
-c2.selectbox("Select Department", [""], key="size_dept", disabled=True)
-c3.selectbox("Select Costomer", [""], key="size_customer", disabled=True)
-c4.selectbox("Select Size", [""], key="size_size", disabled=True)
+with st.expander("Size Tag", expanded=False):
+    c1, c2, c3, c4 = st.columns(4)
+    c1.selectbox("Select Type", [""], key="size_type", disabled=True)
+    c2.selectbox("Select Department", [""], key="size_dept", disabled=True)
+    c3.selectbox("Select Costomer", [""], key="size_customer", disabled=True)
+    c4.selectbox("Select Size", [""], key="size_size", disabled=True)
 
 # ---- Section 3: Hangtag (UI ONLY — not wired up yet) ----
-section_header("Hangtag")
-c1, c2, c3, c4 = st.columns(4)
-c1.text_input("Enter Composition", key="hangtag_composition", disabled=True)
-c2.text_input("Enter Price", key="hangtag_price", disabled=True)
-c3.selectbox("Select Washing Code", [""], key="hangtag_washing", disabled=True)
-c4.selectbox("Select Product Type", [""], key="hangtag_product_type", disabled=True)
+with st.expander("Hangtag", expanded=False):
+    c1, c2, c3, c4 = st.columns(4)
+    c1.text_input("Enter Composition", key="hangtag_composition", disabled=True)
+    c2.text_input("Enter Price", key="hangtag_price", disabled=True)
+    c3.selectbox("Select Washing Code", [""], key="hangtag_washing", disabled=True)
+    c4.selectbox("Select Product Type", [""], key="hangtag_product_type", disabled=True)
 
 # ---- Section 4: Care Label (UI ONLY — not wired up yet) ----
-section_header("Care Label")
-c1, c2 = st.columns(2)
-c1.text_input("Enter Composition", key="care_composition", disabled=True)
-c2.selectbox("Select Washing Code", [""], key="care_washing", disabled=True)
+with st.expander("Care Label", expanded=False):
+    c1, c2 = st.columns(2)
+    c1.text_input("Enter Composition", key="care_composition", disabled=True)
+    c2.selectbox("Select Washing Code", [""], key="care_washing", disabled=True)
 
 st.caption("🚧 Size Tag / Hangtag / Care Label sections are UI placeholders for now — "
            "not yet wired up to generation.")
