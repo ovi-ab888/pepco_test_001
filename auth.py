@@ -30,7 +30,8 @@ def check_login() -> bool:
     if st.session_state.get("authenticated"):
         return True
 
-    st.title("🔒 PEPCO Label Automation — Login")
+    import theme
+    theme.main_header("🔒 PEPCO Label Automation", "Please log in to continue.")
 
     with st.form("login_form"):
         username = st.text_input("Username")
