@@ -33,6 +33,25 @@ import extractor
 st.title("📦 PEPCO Label Automation")
 st.caption("Upload PEPCO order/PO PDF and generate labels effortlessly.")
 
+
+def section_header(title: str, show_arrow: bool = True):
+    """Pink rounded-box section header, matching the design mockup."""
+    arrow_html = (
+        '<span style="font-size:22px; color:#E6007E;">&#8595;</span>' if show_arrow else ""
+    )
+    st.markdown(
+        f"""
+        <div style="border:2px solid #E6007E; border-radius:14px; padding:14px 22px;
+                    margin:22px 0 12px 0; display:flex; justify-content:space-between;
+                    align-items:center;">
+            <span style="font-size:19px; color:#111;">{title}</span>
+            {arrow_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 # -------------------------------
 # 1. ফাইল আপলোড সেকশন
 # -------------------------------
@@ -87,76 +106,71 @@ label_options = {
     "Two Packs Sticker": two_packs_label.generate_batch,
 }
 
-# PDF filename-এর জন্য label name mapping
-label_filename_map = {
-    "Inner & Outer Sticker": "Inner & Outer Sticker",
-    "2-Pieces-Set": "2 Pieces Set",
-    "Additional Care Instruction Tag": "Additional Care_Instruction Tag",
-    "Look at my back Sticker": "Look at my back Sticker",
-    "Two Packs Sticker": "2Packs Sticker",
-}
+# ---- Section 1: Benefite Tag and Sticker (LIVE — works today) ----
+section_header("Benefite Tag and Sticker", show_arrow=False)
 
 selected_labels = []
-cols = st.columns(3)
-
+cols = st.columns(4)
 for i, (label_name, _) in enumerate(label_options.items()):
-    with cols[i % 3]:
+    with cols[i % 4]:
         if st.checkbox(label_name, key=f"chk_{i}"):
             selected_labels.append(label_name)
 
+# ---- Section 2: Size Tag (UI ONLY — not wired up yet) ----
+section_header("Size Tag")
+c1, c2, c3, c4 = st.columns(4)
+c1.selectbox("Select Type", [""], key="size_type", disabled=True)
+c2.selectbox("Select Department", [""], key="size_dept", disabled=True)
+c3.selectbox("Select Costomer", [""], key="size_customer", disabled=True)
+c4.selectbox("Select Size", [""], key="size_size", disabled=True)
+
+# ---- Section 3: Hangtag (UI ONLY — not wired up yet) ----
+section_header("Hangtag")
+c1, c2, c3, c4 = st.columns(4)
+c1.text_input("Enter Composition", key="hangtag_composition", disabled=True)
+c2.text_input("Enter Price", key="hangtag_price", disabled=True)
+c3.selectbox("Select Washing Code", [""], key="hangtag_washing", disabled=True)
+c4.selectbox("Select Product Type", [""], key="hangtag_product_type", disabled=True)
+
+# ---- Section 4: Care Label (UI ONLY — not wired up yet) ----
+section_header("Care Label")
+c1, c2 = st.columns(2)
+c1.text_input("Enter Composition", key="care_composition", disabled=True)
+c2.selectbox("Select Washing Code", [""], key="care_washing", disabled=True)
+
+st.caption("🚧 Size Tag / Hangtag / Care Label sections are UI placeholders for now — "
+           "not yet wired up to generation.")
+
 if not selected_labels:
-    st.info("☝️ Please select at least one label type to generate.")
+    st.info("☝️ Please select at least one label type from **Benefite Tag and Sticker** to generate.")
 
 if selected_labels and st.button("🚀 Generate Selected Labels", type="primary"):
     rows = corrected_df.to_dict(orient="records")
+    filename_row = dict(st.session_state.get("pdf_filename_row", {}))
+    filename_row.update(rows[0])
 
     with st.spinner(f"⏳ Generating {len(selected_labels)} label type(s)..."):
         zip_buffer = io.BytesIO()
-
-        filename_row = dict(st.session_state.get("pdf_filename_row", {}))
-        filename_row.update(rows[0])
-
-        with zipfile.ZipFile(
-            zip_buffer,
-            "w",
-            zipfile.ZIP_DEFLATED
-        ) as zip_file:
-
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             for label_name in selected_labels:
                 generate_func = label_options[label_name]
                 pdf_bytes = generate_func(rows)
 
-                # Label অনুযায়ী filename
-                file_label = label_filename_map.get(
-                    label_name,
-                    label_name.replace(" ", "_").replace("&", "and")
-                )
+                base_filename = extractor.build_filename(filename_row, extension="pdf")
+                if label_name == "Inner & Outer Sticker":
+                    final_filename = base_filename.replace(".pdf", "_Inner_Outer_Pad.pdf")
+                else:
+                    clean_name = label_name.replace(" ", "_").replace("&", "and")
+                    final_filename = base_filename.replace(".pdf", f"_{clean_name}.pdf")
 
-                # Base filename তৈরি
-                base_filename = extractor.build_filename(
-                    filename_row,
-                    extension="pdf"
-                )
-
-                # Common "Sticker" বাদ দিয়ে selected label name বসানো
-                base_filename = base_filename.replace(
-                    "_Sticker ",
-                    f"_{file_label} "
-                )
-
-                zip_file.writestr(
-                    base_filename,
-                    pdf_bytes
-                )
-
+                zip_file.writestr(final_filename, pdf_bytes)
         zip_buffer.seek(0)
 
-    st.success(
-        f"✅ Done! {len(selected_labels)} label type(s) generated and packaged in a ZIP file."
-    )
+    st.success(f"✅ Done! {len(selected_labels)} label type(s) generated and packaged in a ZIP file.")
 
-    # ZIP filename = Supplier_product_code
-    zip_name = f"{str(filename_row.get('Supplier_product_code', '')).strip() or 'PEPCO_Labels'}.zip"
+    # ZIP filename = Supplier_product_code value
+    supplier_code = str(filename_row.get("Supplier_product_code", "UNKNOWN")).strip() or "UNKNOWN"
+    zip_name = f"{supplier_code}.zip"
 
     st.download_button(
         "⬇️ Download All Labels (ZIP)",
