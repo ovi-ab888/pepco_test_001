@@ -130,12 +130,9 @@ with st.expander("Care Label", expanded=False):
     c1, c2 = st.columns(2)
     c1.text_input("Enter Composition", key="care_composition", disabled=True)
     c2.selectbox("Select Washing Code", [""], key="care_washing", disabled=True)
+    
 
-st.caption("🚧 Size Tag / Hangtag / Care Label sections are UI placeholders for now — "
-           "not yet wired up to generation.")
 
-if not selected_labels:
-    st.info("☝️ Please select at least one label type from **Benefite Tag and Sticker** to generate.")
 
 if selected_labels and st.button("Generate Labels", type="primary"):
     rows = corrected_df.to_dict(orient="records")
