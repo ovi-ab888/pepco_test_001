@@ -9,8 +9,14 @@ in Streamlit Cloud under: Manage app -> Settings -> Secrets, like:
     ovi = "your-password-here"
     staff = "another-password"
 
+    [display_names]
+    ovi = "Mr. Ovi"
+    staff = "Ms. Staff"
+
 Each key under [credentials] is a valid username; its value is that user's
-password. Add as many as you need.
+password. [display_names] is optional — it's the name that gets printed on
+the label's "Designer" field. If a username has no entry there, the
+username itself (title-cased) is used instead.
 
 For local testing, create a file .streamlit/secrets.toml with the same
 content (this file should be in .gitignore, never committed).
@@ -53,11 +59,20 @@ def check_login() -> bool:
     return False
 
 
+def get_display_name() -> str:
+    """The name to print on the label's Designer field for the logged-in
+    user — from Streamlit secrets [display_names], falling back to the
+    username itself (title-cased) if no mapping is set."""
+    username = st.session_state.get("username", "")
+    display_names = st.secrets.get("display_names", {})
+    return display_names.get(username, username.title())
+
+
 def logout_button():
     """Optional: call this from the sidebar to let the user log out."""
     if st.session_state.get("authenticated"):
         with st.sidebar:
-            st.caption(f"Logged in as **{st.session_state.get('username', '')}**")
+            st.caption(f"Logged in as **{get_display_name()}**")
             if st.button("Log out"):
                 st.session_state["authenticated"] = False
                 st.session_state.pop("username", None)
