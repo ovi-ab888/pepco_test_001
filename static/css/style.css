@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 * { font-family: 'Inter', sans-serif; }
 
-/* ===== DARK MODE (à¦¡à¦¿à¦«à¦²à§à¦Ÿ) ===== */
+/* ===== DARK MODE (ডিফল্ট) ===== */
 .stApp {
     background: #1a1a2e;
 }
@@ -128,7 +128,8 @@
 .best-algo .metric-label { color: rgba(255,255,255,0.9) !important; }
 
 /* Dark Mode Button */
-.stButton > button, .stDownloadButton button {
+.stButton > button, .stDownloadButton button,
+div[data-testid="stFormSubmitButton"] button {
     background: #5b6bd6 !important;
     color: white !important;
     border: none !important;
@@ -139,7 +140,8 @@
     transition: background-color 0.2s ease !important;
     font-size: 1rem !important;
 }
-.stButton > button:hover, .stDownloadButton button:hover {
+.stButton > button:hover, .stDownloadButton button:hover,
+div[data-testid="stFormSubmitButton"] button:hover {
     background: #4a5ac7 !important;
 }
 
@@ -178,7 +180,7 @@
         background: #f0f2f5;
     }
 
-    /* Light Mode Text Colors - à¦¸à¦¬ à¦Ÿà§‡à¦•à§à¦¸à¦Ÿ à¦—à¦¾à¦¢à¦¼ à¦•à¦°à¦¾ */
+    /* Light Mode Text Colors - সব টেক্সট গাঢ় করা */
     .stApp, .stApp p, .stApp div, .stApp span, .stApp label,
     .stMarkdown, .stMarkdown p, .stMarkdown div, .stMarkdown span,
     .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4,
@@ -269,11 +271,13 @@
     .best-algo .metric-label { color: rgba(255,255,255,0.9) !important; }
 
     /* Light Mode Button */
-    .stButton > button, .stDownloadButton button {
+    .stButton > button, .stDownloadButton button,
+    div[data-testid="stFormSubmitButton"] button {
         background: #5b6bd6 !important;
         color: white !important;
     }
-    .stButton > button:hover, .stDownloadButton button:hover {
+    .stButton > button:hover, .stDownloadButton button:hover,
+div[data-testid="stFormSubmitButton"] button:hover {
         background: #4a5ac7 !important;
     }
 
