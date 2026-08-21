@@ -168,21 +168,17 @@ if selected_labels and st.button("Generate Labels", type="primary"):
         use_container_width=True,
     )
 
-# -------------------------------
-# 5. CSV ডাউনলোড
-# -------------------------------
-with st.expander("💾 Also download the extracted data as CSV (optional)"):
-    csv_bytes = corrected_df.to_csv(index=False, sep=";").encode("utf-8-sig")
-    csv_filename_row = dict(st.session_state.get("pdf_filename_row", {}))
-    csv_filename_row.update(corrected_df.iloc[0].to_dict())
-    csv_download_name = extractor.build_filename(csv_filename_row, extension="csv")
-    st.download_button(
-        "⬇️ Download CSV",
-        data=csv_bytes,
-        file_name=csv_download_name,
-        mime="text/csv",
-        use_container_width=True,
-    )
+
 
 st.divider()
-st.caption("💡 Tip: You can edit any field in the table above before generating the label.")
+
+st.markdown(
+    """
+    <div style="text-align: center; color: #888; font-size: 13px;">
+        © 2026 PEPCO Automation System &nbsp; | &nbsp;
+        Developed by <strong>Ovi</strong> &nbsp; | &nbsp;
+        All Rights Reserved
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
