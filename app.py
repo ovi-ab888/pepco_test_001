@@ -68,8 +68,8 @@ if (
 # -------------------------------
 # 3. ডেটা এডিটর
 # -------------------------------
-st.subheader("Review Data")
-st.caption("Every field is editable — fix anything the extractor got wrong.")
+st.subheader("Review Extracted Data")
+st.caption("Review and update the extracted information before generating labels.")
 corrected_df = st.data_editor(
     st.session_state["pdf_extracted_df"],
     use_container_width=True,
