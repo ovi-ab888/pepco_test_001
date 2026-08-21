@@ -39,10 +39,21 @@ def check_login() -> bool:
     import theme
     theme.main_header("🔒 PEPCO Label Automation", "Please log in to continue.")
 
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Log in", type="primary")
+    # centered, card-styled form — narrower than the full page width
+    left, center, right = st.columns([1, 1.3, 1])
+    with center:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown(
+            '<div class="card-title" style="text-align:center; display:block; '
+            'border-bottom:none;">Sign in</div>',
+            unsafe_allow_html=True,
+        )
+        with st.form("login_form"):
+            username = st.text_input("Username", placeholder="Enter your username")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
+            st.write("")
+            submitted = st.form_submit_button("Log in", type="primary", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     if submitted:
         credentials = st.secrets.get("credentials", {})
