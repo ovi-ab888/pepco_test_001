@@ -1,14 +1,14 @@
 """
 labels/pad_label.py
-"Pad" (full proof sheet) — the pad.pdf template stays BLANK. At generation
-time we:
+"Pad" (full proof sheet) — the template stays BLANK. At generation time we:
   1. Generate the Inner label (via labels.inner_label, same config used for
      the standalone Inner output).
   2. Generate the Outer label (via labels.outer_label, same config used for
      the standalone Outer output).
-  3. Composite both onto a copy of pad.pdf at the Inner/Outer box positions.
-  4. Fill the header fields (Order ID, Item, Style Code, Color) directly on
-     the pad.
+  3. Composite both onto a copy of the blank template at the Inner/Outer
+     box positions.
+  4. Fill the header fields (Order ID, Item, Style Code, Color, Designer,
+     etc.) directly on the pad.
 
 This way inner_field_mapping.json / outer_field_mapping.json stay the single
 source of truth — editing them updates the Pad output automatically too.
@@ -24,7 +24,10 @@ import labels.inner_label as inner_label
 import labels.outer_label as outer_label
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
-TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "pad.pdf")
+# NOTE: filename here also drives the download filename (build_filename uses
+# each label type's own template filename) — keep this in sync with
+# whatever the actual file in templates/ is named.
+TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Inner_Outer_Sticker.pdf")
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "pad_header_mapping.json")
 
 # Where the Inner/Outer boxes sit on the pad page (PDF points, top-left origin)
