@@ -161,7 +161,7 @@ if selected_labels and st.button("Generate Labels", type="primary"):
     zip_name = f"{supplier_code}.zip"
 
     st.download_button(
-        "⬇️ Download All Labels (ZIP)",
+        "Download All Labels",
         data=zip_buffer,
         file_name=zip_name,
         mime="application/zip",
