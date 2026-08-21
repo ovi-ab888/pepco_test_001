@@ -32,7 +32,7 @@ import labels.look_at_my_back_sticker as back_sticker_label
 import labels.two_packs as two_packs_label
 import extractor
 
-theme.main_header("📦 PEPCO Label Automation", "Upload PEPCO order/PO PDF and generate labels effortlessly.")
+theme.main_header("PEPCO Label Automation", "Automated Label Data Extraction & Generation System")
 
 
 # -------------------------------
@@ -45,7 +45,7 @@ pdf_files = st.file_uploader(
     key="pdf_uploader",
 )
 if not pdf_files:
-    st.info("📄 Please upload a PDF to continue.")
+    st.info("Upload and process your PEPCO PO's.")
     st.stop()
 
 # -------------------------------
@@ -68,7 +68,7 @@ if (
 # -------------------------------
 # 3. ডেটা এডিটর
 # -------------------------------
-st.subheader("✏️ Review & correct extracted data")
+st.subheader("Review Data")
 st.caption("Every field is editable — fix anything the extractor got wrong.")
 corrected_df = st.data_editor(
     st.session_state["pdf_extracted_df"],
@@ -80,7 +80,7 @@ corrected_df = st.data_editor(
 # -------------------------------
 # 4. লেবেল টাইপ সিলেক্ট ও জেনারেশন
 # -------------------------------
-st.subheader("🖨️ Select Label Types to Generate")
+st.subheader("Select the required label")
 
 label_options = {
     "Inner & Outer Sticker": pad_label,
@@ -137,7 +137,7 @@ st.caption("🚧 Size Tag / Hangtag / Care Label sections are UI placeholders fo
 if not selected_labels:
     st.info("☝️ Please select at least one label type from **Benefite Tag and Sticker** to generate.")
 
-if selected_labels and st.button("🚀 Generate Selected Labels", type="primary"):
+if selected_labels and st.button("Generate Labels", type="primary"):
     rows = corrected_df.to_dict(orient="records")
     filename_row = dict(st.session_state.get("pdf_filename_row", {}))
     filename_row.update(rows[0])
