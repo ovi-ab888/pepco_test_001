@@ -60,6 +60,7 @@ if (
     if extracted_df.empty:
         st.error("❌ Couldn't extract data from this PDF — check it's the right file type.")
         st.stop()
+    extracted_df["Designer"] = auth.get_display_name()  # from the logged-in user, editable below
     st.session_state["pdf_filename_row"] = extracted_df.iloc[0].to_dict()
     st.session_state["pdf_extracted_df"] = extracted_df.drop(columns=["_temp_sku_for_filename"])
     st.session_state["pdf_uploader_names"] = [f.name for f in pdf_files]
