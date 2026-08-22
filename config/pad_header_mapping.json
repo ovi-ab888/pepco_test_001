@@ -6,5 +6,5 @@
   {"name": "today_date", "type": "text", "x": 472, "y": 51, "font_size": 9, "font": "tahoma", "prefix": ""},
   {"name": "Item_classification", "type": "text", "x": 606, "y": 86, "font_size": 9, "font": "tahoma", "prefix": ""},
   {"name": "Supplier_name", "type": "text", "x": 606, "y": 98, "font_size": 9, "font": "tahoma", "prefix": ""},
-  {"name": "Designer", "type": "text", "x": 430, "y": 75, "font_size": 9, "font": "tahoma", "prefix": ""}
+  {"name": "Designer", "type": "text", "x": 472, "y": 63, "font_size": 9, "font": "tahoma", "prefix": ""}
 ]
