@@ -32,7 +32,7 @@ import labels.look_at_my_back_sticker as back_sticker_label
 import labels.two_packs as two_packs_label
 import extractor
 
-theme.main_header("📦 PEPCO Label Automation", "Upload PEPCO order/PO PDF and generate labels effortlessly.")
+theme.main_header("PEPCO Label Automation", "Upload PEPCO order/PO PDF and generate labels effortlessly.")
 
 # -------------------------------
 # 1. ফাইল আপলোড সেকশন
@@ -44,7 +44,7 @@ pdf_files = st.file_uploader(
     key="pdf_uploader",
 )
 if not pdf_files:
-    st.info("📄 Please upload a PDF to continue.")
+    st.info("Please upload a PDF to continue.")
     st.stop()
 
 # -------------------------------
@@ -54,10 +54,10 @@ if (
     "pdf_extracted_df" not in st.session_state
     or st.session_state.get("pdf_uploader_names") != [f.name for f in pdf_files]
 ):
-    with st.spinner("🔄 Extracting data from PDF..."):
+    with st.spinner("Extracting data from PDF..."):
         extracted_df = extractor.extract_rows_from_pdfs(pdf_files)
     if extracted_df.empty:
-        st.error("❌ Couldn't extract data from this PDF — check it's the right file type.")
+        st.error("Couldn't extract data from this PDF — check it's the right file type.")
         st.stop()
     extracted_df["Designer"] = auth.get_display_name()  # from the logged-in user, editable below
     st.session_state["pdf_filename_row"] = extracted_df.iloc[0].to_dict()
@@ -67,7 +67,7 @@ if (
 # -------------------------------
 # 3. ডেটা এডিটর
 # -------------------------------
-st.subheader("✏️ Review & correct extracted data")
+st.subheader("Review & correct extracted data")
 st.caption("Every field is editable — fix anything the extractor got wrong.")
 corrected_df = st.data_editor(
     st.session_state["pdf_extracted_df"],
@@ -79,7 +79,7 @@ corrected_df = st.data_editor(
 # -------------------------------
 # 4. লেবেল টাইপ সিলেক্ট ও জেনারেশন
 # -------------------------------
-st.subheader("🖨️ Select Label Types to Generate")
+st.subheader("Select Label Types to Generate")
 
 label_options = {
     "Inner & Outer Sticker": pad_label,
@@ -131,18 +131,12 @@ with st.expander("Care Label", expanded=False):
     c1.text_input("Enter Composition", key="care_composition", disabled=True)
     c2.selectbox("Select Washing Code", [""], key="care_washing", disabled=True)
 
-st.caption("🚧 Size Tag / Hangtag / Care Label sections are UI placeholders for now — "
-           "not yet wired up to generation.")
-
-if not selected_labels:
-    st.info("☝️ Please select at least one label type from **Benefite Tag and Sticker** to generate.")
-
-if selected_labels and st.button("🚀 Generate Selected Labels", type="primary"):
+if selected_labels and st.button("Generate Selected Labels", type="primary"):
     rows = corrected_df.to_dict(orient="records")
     filename_row = dict(st.session_state.get("pdf_filename_row", {}))
     filename_row.update(rows[0])
 
-    with st.spinner(f"⏳ Generating {len(selected_labels)} label type(s)..."):
+    with st.spinner(f"Generating {len(selected_labels)} label type(s)..."):
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             for label_name in selected_labels:
@@ -157,33 +151,17 @@ if selected_labels and st.button("🚀 Generate Selected Labels", type="primary"
                 zip_file.writestr(final_filename, pdf_bytes)
         zip_buffer.seek(0)
 
-    st.success(f"✅ Done! {len(selected_labels)} label type(s) generated and packaged in a ZIP file.")
+    st.success(f"Done! {len(selected_labels)} label type(s) generated and packaged in a ZIP file.")
 
     # ZIP filename = Supplier_product_code value
     supplier_code = str(filename_row.get("Supplier_product_code", "UNKNOWN")).strip() or "UNKNOWN"
     zip_name = f"{supplier_code}.zip"
 
     st.download_button(
-        "⬇️ Download All Labels (ZIP)",
+        "Download All Labels (ZIP)",
         data=zip_buffer,
         file_name=zip_name,
         mime="application/zip",
-        use_container_width=True,
-    )
-
-# -------------------------------
-# 5. CSV ডাউনলোড
-# -------------------------------
-with st.expander("💾 Also download the extracted data as CSV (optional)"):
-    csv_bytes = corrected_df.to_csv(index=False, sep=";").encode("utf-8-sig")
-    csv_filename_row = dict(st.session_state.get("pdf_filename_row", {}))
-    csv_filename_row.update(corrected_df.iloc[0].to_dict())
-    csv_download_name = extractor.build_filename(csv_filename_row, extension="csv")
-    st.download_button(
-        "⬇️ Download CSV",
-        data=csv_bytes,
-        file_name=csv_download_name,
-        mime="text/csv",
         use_container_width=True,
     )
 
