@@ -142,15 +142,30 @@ with st.expander("Benefite Tag and Sticker", expanded=True):
 
 # ---- Section 2: Size Tag (LIVE) ----
 with st.expander("Size Tag", expanded=False):
-    size_tag_variant = st.selectbox("Select Type", ["Regular", "OEKO-TEX"], key="size_tag_variant")
-    include_size_tag = st.checkbox("Generate Size Tag", key="include_size_tag")
-    if include_size_tag:
-        size_tag_key = f"Size Tag ({size_tag_variant})"
-        label_options[size_tag_key] = {
-            "generate": lambda rows, v=size_tag_variant: size_tag_label.generate_batch(rows, variant=v),
-            "template_path": size_tag_label.TEMPLATES[size_tag_variant],
-        }
-        selected_labels.append(size_tag_key)
+    size_types = size_tag_label.list_types()
+    if not size_types:
+        st.caption("No Size Tag templates found yet in templates/Sizetag/.")
+    else:
+        sel_type = st.selectbox("Select Type", size_types, key="size_tag_type")
+
+        departments = size_tag_label.list_departments(sel_type) if sel_type else []
+        sel_dept = st.selectbox("Select Department", departments, key="size_tag_dept") if departments else None
+
+        customers = size_tag_label.list_customers(sel_type, sel_dept) if sel_dept else []
+        sel_cust = st.selectbox("Select Customer", customers, key="size_tag_cust") if customers else None
+
+        sizes = size_tag_label.list_sizes(sel_type, sel_dept, sel_cust) if sel_cust else []
+        sel_size = st.selectbox("Select Size", sizes, key="size_tag_size") if sizes else None
+
+        include_size_tag = st.checkbox("Generate Size Tag", key="include_size_tag", disabled=not sel_size)
+        if include_size_tag and sel_size:
+            template_path = size_tag_label.get_template_path(sel_type, sel_dept, sel_cust, sel_size)
+            size_tag_key = f"Size Tag ({sel_type}/{sel_dept}/{sel_cust}/{sel_size})"
+            label_options[size_tag_key] = {
+                "generate": lambda rows, tp=template_path: size_tag_label.generate_batch(rows, tp),
+                "template_path": template_path,
+            }
+            selected_labels.append(size_tag_key)
 
 # ---- Section 3: Hangtag (UI ONLY — not wired up yet) ----
 with st.expander("Hangtag", expanded=False):
