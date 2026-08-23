@@ -140,65 +140,17 @@ with st.expander("Benefite Tag and Sticker", expanded=True):
             if st.checkbox(label_name, key=f"chk_{i}"):
                 selected_labels.append(label_name)
 
-# ---- Section 2: Size Tag (আপডেটেড - ক্যাসকেডিং ড্রপডাউন) ----
+# ---- Section 2: Size Tag (LIVE) ----
 with st.expander("Size Tag", expanded=False):
-    # ফোল্ডার থেকে অপশন লোড করুন
-    size_options = size_tag_label.get_available_options()
-    
-    if not size_options:
-        st.warning("⚠️ Size Tag-এর জন্য কোনো টেমপ্লেট পাওয়া যায়নি।")
-    else:
-        col1, col2, col3 = st.columns(3)
-        
-        # টাইপ সিলেক্ট
-        type_list = list(size_options.keys())
-        with col1:
-            selected_type = st.selectbox("Select Type", type_list, key="size_type")
-        
-        # ডিপার্টমেন্ট সিলেক্ট (টাইপের উপর নির্ভরশীল)
-        dept_list = list(size_options.get(selected_type, {}).keys())
-        with col2:
-            selected_dept = st.selectbox(
-                "Select Department", 
-                dept_list, 
-                key="size_dept",
-                disabled=not dept_list
-            )
-        
-        # কাস্টমার সিলেক্ট (ডিপার্টমেন্টের উপর নির্ভরশীল)
-        cust_list = size_options.get(selected_type, {}).get(selected_dept, [])
-        with col3:
-            selected_cust = st.selectbox(
-                "Select Customer", 
-                cust_list, 
-                key="size_cust",
-                disabled=not cust_list
-            )
-        
-        # Generate বাটন
-        if st.button("📥 Generate Size Tag", key="gen_size_tag"):
-            if selected_type and selected_dept and selected_cust:
-                pdf_path = size_tag_label.get_pdf_path(selected_type, selected_dept, selected_cust)
-                
-                if pdf_path:
-                    try:
-                        with open(pdf_path, "rb") as f:
-                            pdf_bytes = f.read()
-                        
-                        # ডাউনলোড বাটন
-                        st.download_button(
-                            label="✅ Download Size Tag",
-                            data=pdf_bytes,
-                            file_name="Size Tag.pdf",
-                            mime="application/pdf",
-                            use_container_width=True
-                        )
-                    except Exception as e:
-                        st.error(f"❌ ফাইল পড়তে সমস্যা: {str(e)}")
-                else:
-                    st.error("❌ টেমপ্লেট ফাইল পাওয়া যায়নি!")
-            else:
-                st.warning("⚠️ দয়া করে সব অপশন সিলেক্ট করুন।")
+    size_tag_variant = st.selectbox("Select Type", ["Regular", "OEKO-TEX"], key="size_tag_variant")
+    include_size_tag = st.checkbox("Generate Size Tag", key="include_size_tag")
+    if include_size_tag:
+        size_tag_key = f"Size Tag ({size_tag_variant})"
+        label_options[size_tag_key] = {
+            "generate": lambda rows, v=size_tag_variant: size_tag_label.generate_batch(rows, variant=v),
+            "template_path": size_tag_label.TEMPLATES[size_tag_variant],
+        }
+        selected_labels.append(size_tag_key)
 
 # ---- Section 3: Hangtag (UI ONLY — not wired up yet) ----
 with st.expander("Hangtag", expanded=False):
