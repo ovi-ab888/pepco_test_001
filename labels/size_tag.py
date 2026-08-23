@@ -1,20 +1,20 @@
 """
 labels/size_tag.py
-Size Tag stickers (Regular / With OEKO-TEX variants) — 6-panel size ladder
-with the item's English name printed on each panel. Header (Order ID, Item,
-Style Code, Color, Designer, etc.) uses the same layout as
-pad_label/inner_label/outer_label, via config/size_tag_mapping.json (a copy
-of pad_header_mapping.json's shape, plus Item_name_English x6).
+Size Tag stickers — templates live in a folder tree on disk:
 
-Two template variants, selected by name:
-    "Regular"   -> Size_Tag_Regular.pdf    (70mm x 46mm)
-    "OEKO-TEX"  -> Size_Tag_OEKO_TEX.pdf   (86mm x 46mm, has the OEKO-TEX
-                   certification badge on each panel)
+    templates/Sizetag/<Type>/<Department>/<Customer>/<size file>.pdf
 
-NOTE: the "PRODUCT NAME" / item-name text in the source templates uses a
-Poppins-SemiBold font we don't have a .ttf for yet — falls back to
-Helvetica-Bold (hebo) for now. Drop Poppins-SemiBold.ttf into /fonts and
-update the "font" key in config/size_tag_mapping.json to switch to it later.
+e.g. templates/Sizetag/Regular/PB & PG/All/Size Tag.pdf
+
+The available Type / Department / Customer / size-file options are
+discovered at RUNTIME by scanning this folder tree — adding a new
+combination is just dropping a new folder/PDF into templates/Sizetag/ on
+GitHub, no code changes needed here or in app.py.
+
+All Sizetag PDFs share the same header layout (Order ID, Item, Style Code,
+Color, Designer, etc. — same positions as pad_header_mapping.json) plus
+Item_name_English repeated across the 6 size panels, so they all use the
+one config/size_tag_mapping.json.
 """
 import os
 import json
@@ -24,31 +24,62 @@ sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 from engine.label_engine import fill_single_label, generate_multipage_pdf
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
+SIZETAG_ROOT = os.path.join(BASE_DIR, "templates", "Sizetag")
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "size_tag_mapping.json")
 
-TEMPLATES = {
-    "Regular": os.path.join(BASE_DIR, "templates", "Size_Tag_Regular.pdf"),
-    "OEKO-TEX": os.path.join(BASE_DIR, "templates", "Size_Tag_OEKO_TEX.pdf"),
-}
-
-DEFAULT_TEMPLATE_KEY = "Regular"
-TEMPLATE_PATH = TEMPLATES[DEFAULT_TEMPLATE_KEY]  # used for filename derivation
+# used only as a filename-logic fallback if nothing has been selected yet
+TEMPLATE_PATH = None
 
 
-def load_field_config():
+def _list_subfolders(path: str) -> list:
+    if not os.path.isdir(path):
+        return []
+    return sorted(d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d)))
+
+
+def _list_pdfs(path: str) -> list:
+    if not os.path.isdir(path):
+        return []
+    return sorted(f for f in os.listdir(path) if f.lower().endswith(".pdf"))
+
+
+def list_types() -> list:
+    """Level 1: e.g. ['Regular', 'With OEKO-TEX']"""
+    return _list_subfolders(SIZETAG_ROOT)
+
+
+def list_departments(type_name: str) -> list:
+    """Level 2: e.g. ['PB & PG', 'OB & OG']"""
+    return _list_subfolders(os.path.join(SIZETAG_ROOT, type_name))
+
+
+def list_customers(type_name: str, department: str) -> list:
+    """Level 3: e.g. ['All', 'K. C. PRINT LTD.']"""
+    return _list_subfolders(os.path.join(SIZETAG_ROOT, type_name, department))
+
+
+def list_sizes(type_name: str, department: str, customer: str) -> list:
+    """Level 4: the actual PDF filenames, e.g. ['Size Tag.pdf']"""
+    return _list_pdfs(os.path.join(SIZETAG_ROOT, type_name, department, customer))
+
+
+def get_template_path(type_name: str, department: str, customer: str, size_file: str) -> str:
+    return os.path.join(SIZETAG_ROOT, type_name, department, customer, size_file)
+
+
+def load_field_config() -> list:
     with open(CONFIG_PATH, "r") as f:
         return json.load(f)
 
 
-def generate_single(row: dict, variant: str = DEFAULT_TEMPLATE_KEY) -> bytes:
-    """variant must be one of TEMPLATES.keys()."""
-    template_path = TEMPLATES.get(variant, TEMPLATES[DEFAULT_TEMPLATE_KEY])
+def generate_single(row: dict, template_path: str) -> bytes:
     field_config = load_field_config()
     return fill_single_label(template_path, row, field_config)
 
 
-def generate_batch(rows: list, variant: str = DEFAULT_TEMPLATE_KEY) -> bytes:
-    """rows = list of Excel row dicts. Returns one merged multi-page PDF."""
-    template_path = TEMPLATES.get(variant, TEMPLATES[DEFAULT_TEMPLATE_KEY])
+def generate_batch(rows: list, template_path: str) -> bytes:
+    """rows = list of Excel row dicts. template_path = the specific PDF
+    chosen via the Type/Department/Customer/Size cascade (use
+    get_template_path() to build it)."""
     field_config = load_field_config()
     return generate_multipage_pdf(template_path, rows, field_config)
