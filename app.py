@@ -146,16 +146,18 @@ with st.expander("Size Tag", expanded=False):
     if not size_types:
         st.caption("No Size Tag templates found yet in templates/Sizetag/.")
     else:
-        sel_type = st.selectbox("Select Type", size_types, key="size_tag_type")
+        c1, c2, c3, c4 = st.columns(4)
+
+        sel_type = c1.selectbox("Select Type", size_types, key="size_tag_type")
 
         departments = size_tag_label.list_departments(sel_type) if sel_type else []
-        sel_dept = st.selectbox("Select Department", departments, key="size_tag_dept") if departments else None
+        sel_dept = c2.selectbox("Select Department", departments, key="size_tag_dept") if departments else None
 
         customers = size_tag_label.list_customers(sel_type, sel_dept) if sel_dept else []
-        sel_cust = st.selectbox("Select Customer", customers, key="size_tag_cust") if customers else None
+        sel_cust = c3.selectbox("Select Customer", customers, key="size_tag_cust") if customers else None
 
         sizes = size_tag_label.list_sizes(sel_type, sel_dept, sel_cust) if sel_cust else []
-        sel_size = st.selectbox("Select Size", sizes, key="size_tag_size") if sizes else None
+        sel_size = c4.selectbox("Select Size", sizes, key="size_tag_size") if sizes else None
 
         include_size_tag = st.checkbox("Generate Size Tag", key="include_size_tag", disabled=not sel_size)
         if include_size_tag and sel_size:
