@@ -21,7 +21,7 @@ import json
 import sys
 
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
-from engine.label_engine import fill_single_label, generate_multipage_pdf
+from engine.label_engine import fill_single_label, fill_placeholders_by_search
 
 BASE_DIR = os.path.join(os.path.dirname(__file__), "..")
 SIZETAG_ROOT = os.path.join(BASE_DIR, "templates", "Sizetag")
@@ -29,6 +29,12 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config", "size_tag_mapping.json")
 
 # used only as a filename-logic fallback if nothing has been selected yet
 TEMPLATE_PATH = None
+
+# The item name on each panel is a literal "{Item_name_English}" placeholder
+# in the template artwork — found and replaced wherever it appears, so it
+# works no matter how many panels a given template has or where they sit.
+ITEM_NAME_FONT = "poppins_semibold"
+ITEM_NAME_FONT_SIZE = 12
 
 
 def _list_subfolders(path: str) -> list:
@@ -72,14 +78,36 @@ def load_field_config() -> list:
         return json.load(f)
 
 
+def _fill_one(template_path: str, row: dict) -> bytes:
+    # 1. header fields at fixed coordinates (shared across every Sizetag template)
+    header_config = load_field_config()
+    header_filled = fill_single_label(template_path, row, header_config)
+
+    # 2. item name — found by searching for the literal "{Item_name_English}"
+    #    placeholder text, wherever and however many times it appears
+    final_bytes = fill_placeholders_by_search(
+        header_filled, row,
+        font=ITEM_NAME_FONT, font_size=ITEM_NAME_FONT_SIZE,
+        token_columns=["Item_name_English"],
+    )
+    return final_bytes
+
+
 def generate_single(row: dict, template_path: str) -> bytes:
-    field_config = load_field_config()
-    return fill_single_label(template_path, row, field_config)
+    return _fill_one(template_path, row)
 
 
 def generate_batch(rows: list, template_path: str) -> bytes:
     """rows = list of Excel row dicts. template_path = the specific PDF
     chosen via the Type/Department/Customer/Size cascade (use
     get_template_path() to build it)."""
-    field_config = load_field_config()
-    return generate_multipage_pdf(template_path, rows, field_config)
+    import fitz
+    merged = fitz.open()
+    for row in rows:
+        single_bytes = _fill_one(template_path, row)
+        single_doc = fitz.open("pdf", single_bytes)
+        merged.insert_pdf(single_doc)
+        single_doc.close()
+    out = merged.tobytes()
+    merged.close()
+    return out
