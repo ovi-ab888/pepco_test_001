@@ -22,6 +22,47 @@ PICTOGRAM_MAPPING = {
 PROMOTIONAL_MAPPING = {"PROMO": "P", "KVI": "K", "HS": "H"}
 
 
+def _extract_sizes_from_pdf(pages_text):
+    """Extract Sizes correctly even when split line-by-line.
+    Supports:
+      - 9/10, 11/12, 13/14, 15
+      - S, M, L, XL, XXL
+      - 3/4, 4/5, 5/6 ...
+      - 6/9, 9/12, 12/18 ...
+      - 92-98, 98-104, 110-116, 122-128   (hyphen ranges)
+      - multiple sizes on one line separated by commas
+    """
+    size_pattern = re.compile(
+        r"^(?:\d+(?:[/-]\d+)?|[A-Za-z]{1,4}(?:/[A-Za-z]{1,4})?)$",
+        re.IGNORECASE
+    )
+
+    for text in pages_text:
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        for idx, line in enumerate(lines):
+            if line.lower() == "sizes":
+                sizes = []
+                for next_line in lines[idx + 1:]:
+                    upper = next_line.upper()
+                    if upper == "TOTAL":
+                        break
+                    if upper == "COLOUR":
+                        continue
+
+                    # Handle single size per line OR comma-separated sizes
+                    candidates = re.split(r"\s*,\s*", next_line)
+                    for cand in candidates:
+                        cand = cand.strip()
+                        if not cand:
+                            continue
+                        if size_pattern.fullmatch(cand) and cand.upper() not in ("COLOUR", "TOTAL"):
+                            sizes.append(cand)
+
+                if sizes:
+                    return ", ".join(sizes)
+    return ""
+
+
 def _extract_all_tc_numbers_from_page4_plus(pages_text):
     tc_list = []
     if len(pages_text) >= 4:
@@ -129,6 +170,47 @@ def _extract_colour(pages_text):
     return ""  # left blank — user fills it in during the correction step
 
 
+def _extract_sizes_from_pdf(pages_text):
+    """Extract Sizes correctly even when split line-by-line.
+    Supports:
+      - 9/10, 11/12, 13/14, 15
+      - S, M, L, XL, XXL
+      - 3/4, 4/5, 5/6 ...
+      - 6/9, 9/12, 12/18 ...
+      - 92-98, 98-104, 110-116, 122-128   (hyphen ranges)
+      - multiple sizes on one line separated by commas
+    """
+    size_pattern = re.compile(
+        r"^(?:\d+(?:[/-]\d+)?|[A-Za-z]{1,4}(?:/[A-Za-z]{1,4})?)$",
+        re.IGNORECASE
+    )
+
+    for text in pages_text:
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        for idx, line in enumerate(lines):
+            if line.lower() == "sizes":
+                sizes = []
+                for next_line in lines[idx + 1:]:
+                    upper = next_line.upper()
+                    if upper == "TOTAL":
+                        break
+                    if upper == "COLOUR":
+                        continue
+
+                    # Handle single size per line OR comma-separated sizes
+                    candidates = re.split(r"\s*,\s*", next_line)
+                    for cand in candidates:
+                        cand = cand.strip()
+                        if not cand:
+                            continue
+                        if size_pattern.fullmatch(cand) and cand.upper() not in ("COLOUR", "TOTAL"):
+                            sizes.append(cand)
+
+                if sizes:
+                    return ", ".join(sizes)
+    return ""
+
+
 def extract_order_id_only(file) -> str | None:
     """Extract just the Order ID from an extra PDF (used to concatenate multiple orders)."""
     try:
@@ -173,6 +255,7 @@ def extract_row_from_pdf(file, extra_order_ids: str = "") -> dict | None:
     season_st = _extract_season_from_page4_plus(pages_text)
     inner_qty = _extract_inner_qty_from_page4_plus(pages_text)
     outer_qty = _extract_outer_qty_from_page4_plus(pages_text)
+    sizes = _extract_sizes_from_pdf(pages_text)
 
     pictogram = ""
     m = re.search(r"Pictogram\s*no.*?(PIC\d{5})", page1, re.IGNORECASE | re.DOTALL)
@@ -231,6 +314,7 @@ def extract_row_from_pdf(file, extra_order_ids: str = "") -> dict | None:
         "Season_st": season_st,
         "Inner_qty": inner_qty,
         "Outer_qty": outer_qty,
+        "Sizes": sizes,
         "_temp_sku_for_filename": sku_for_filename,
     }
     for i in range(7):
