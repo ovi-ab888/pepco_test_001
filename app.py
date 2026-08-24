@@ -39,14 +39,27 @@ theme.main_header("PEPCO Label Automation", "Upload PEPCO order/PO PDF and gener
 # -------------------------------
 # 1. ফাইল আপলোড সেকশন
 # -------------------------------
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
+
+def _reset_all():
+    for k in list(st.session_state.keys()):
+        if k.startswith(("pdf_", "chk_", "size_tag_", "include_size_tag", "hangtag_", "care_")):
+            st.session_state.pop(k, None)
+    st.session_state.uploader_key += 1
+
+
+st.button("Upload New File", on_click=_reset_all)
+
 pdf_files = st.file_uploader(
     "Upload PEPCO PDF",
     type=["pdf"],
     accept_multiple_files=True,
-    key="pdf_uploader",
+    key=f"pdf_uploader_{st.session_state.uploader_key}",
 )
 if not pdf_files:
-    st.info("Please upload a PDF to continue.")
+    st.info("📄 Please upload a PDF to continue.")
     st.stop()
 
 # -------------------------------
