@@ -35,6 +35,7 @@ FONTS = {
     "tahoma": os.path.join(FONTS_DIR, "tahoma.ttf"),
     "helv_bold_oblique": os.path.join(FONTS_DIR, "Helvetica_Bold_Oblique.ttf"),
     "pepco_ovi": os.path.join(FONTS_DIR, "PEPCO_Ovi.ttf"),
+    "poppins_semibold": os.path.join(FONTS_DIR, "Poppins-SemiBold.ttf"),
 }
 
 # PyMuPDF built-in fonts — always available, no file needed
@@ -323,6 +324,72 @@ def fill_single_label(template_path: str, row: dict, field_config: list) -> byte
                     value, barcode_type, color_hex, guard_height_factor, show_small_text
                 )
                 page.insert_image(fitz.Rect(x, y, x + w, y + h), stream=img_bytes)
+
+    out = doc.tobytes()
+    doc.close()
+    return out
+
+
+def fill_placeholders_by_search(source, row: dict, font: str = "helv",
+                                 font_size: float = 12, color=(0, 0, 0),
+                                 token_columns: list = None) -> bytes:
+    """
+    Fills a template by SEARCHING for literal "{ColumnName}" text on the
+    page and replacing every occurrence with that column's value — no
+    coordinates needed at all. Use this for templates where the same
+    placeholder repeats an unknown/variable number of times (e.g. an item
+    name printed on every panel of a multi-panel size tag), or where many
+    templates share a placeholder but each has a different layout, so one
+    coordinate-based config can't cover all of them.
+
+    source: a template file path (str), OR already-filled PDF bytes — pass
+    bytes here to chain this after fill_single_label(), e.g. fill the header
+    by coordinates first, then scan the result for {Item_name_English}.
+
+    row keys are matched via "{" + key + "}" (case-sensitive, exact match).
+    token_columns optionally restricts which row keys to search for (skips
+    scanning for every column when you only expect one or two placeholders
+    on the page) — pass a list of column names, or leave None to check every
+    key in row.
+
+    Each match is centered within its own found bounding box, so it adapts
+    automatically to the placeholder's actual size/position in that specific
+    template — including repeats across multiple panels.
+    """
+    doc = fitz.open(source) if isinstance(source, str) else fitz.open("pdf", source)
+    page = doc[0]
+
+    fontname = "helv"
+    fontfile = None
+    if font in FONTS and os.path.exists(FONTS[font]):
+        fontname = font
+        fontfile = FONTS[font]
+    elif font in BUILTIN_FONTS:
+        fontname = BUILTIN_FONTS[font]
+
+    keys_to_check = token_columns if token_columns is not None else list(row.keys())
+
+    for key in keys_to_check:
+        if key not in row:
+            continue
+        token = "{" + str(key) + "}"
+        matches = page.search_for(token)
+        if not matches:
+            continue
+        value = _clean(row[key])
+
+        for rect in matches:
+            page.draw_rect(rect, color=None, fill=(1, 1, 1))  # cover the placeholder text
+            try:
+                font_obj = fitz.Font(fontfile=fontfile) if fontfile else fitz.Font(fontname)
+                text_width = font_obj.text_length(value, fontsize=font_size)
+            except Exception:
+                text_width = fitz.get_text_length(value, fontname=fontname, fontsize=font_size)
+            # center the value within the placeholder's own bounding box
+            x = rect.x0 + (rect.width - text_width) / 2
+            y = rect.y1 - (rect.height - font_size) / 2  # roughly centered baseline
+            page.insert_text((x, y), value, fontsize=font_size, color=color,
+                              fontname=fontname, fontfile=fontfile)
 
     out = doc.tobytes()
     doc.close()
