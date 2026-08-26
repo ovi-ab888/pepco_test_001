@@ -67,8 +67,19 @@ def generate_single(row: dict) -> bytes:
     fields stay identical across pages, only TC_Number/Barcode change. A row
     with just TC_Number_st1/Barcode_st1 filled still returns a single page,
     same as before.
+
+    When there's more than one page, each page also gets its own "Size"
+    (from the row's comma-separated "Sizes" column, matched by position —
+    page 1 -> 1st size, page 2 -> 2nd size, etc.). With only one page, no
+    Size is shown at all.
     """
     variants = expand_tc_barcode_variants(row)
+
+    if len(variants) > 1:
+        sizes_list = [s.strip() for s in str(row.get("Sizes", "")).split(",") if s.strip()]
+        for i, variant_row in enumerate(variants):
+            variant_row["Size"] = sizes_list[i] if i < len(sizes_list) else ""
+
     if len(variants) == 1:
         return _generate_one_page(variants[0])
 
