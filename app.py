@@ -26,11 +26,7 @@ auth.logout_button()
 import labels.pad_label as pad_label
 import labels.inner_label as inner_label
 import labels.outer_label as outer_label
-import labels.two_pieces_set as pieces_label
-import labels.additional_care_instruction_tag as care_tag_label
-import labels.look_at_my_back_sticker as back_sticker_label
-import labels.two_packs as two_packs_label
-import labels.kvi_size_stickers as kvi_label
+import labels.benefite as benefite_label
 import labels.size_tag as size_tag_label
 import extractor
 
@@ -45,7 +41,7 @@ if "uploader_key" not in st.session_state:
 
 def _reset_all():
     for k in list(st.session_state.keys()):
-        if k.startswith(("pdf_", "chk_", "size_tag_", "include_size_tag", "hangtag_", "care_")):
+        if k.startswith(("pdf_", "chk_", "size_tag_", "include_size_tag", "hangtag_", "care_", "benefite_")):
             st.session_state.pop(k, None)
     st.session_state.uploader_key += 1
 
@@ -97,38 +93,13 @@ corrected_df = st.data_editor(
 st.subheader("Select Label Types to Generate")
 
 # name -> {"generate": callable(rows) -> pdf_bytes, "template_path": str or None}
+# Inner & Outer Sticker stays separate/fixed (NOT part of the Benefite folder
+# scan) — everything else under Benefite Tag and Sticker is discovered
+# dynamically from templates/Benefite/<Sticker Type>/<variant>.pdf below.
 label_options = {
     "Inner & Outer Sticker": {
         "generate": pad_label.generate_batch,
         "template_path": getattr(pad_label, "TEMPLATE_PATH", None),
-    },
-    "2-Pieces-Set": {
-        "generate": pieces_label.generate_batch,
-        "template_path": getattr(pieces_label, "TEMPLATE_PATH", None),
-    },
-    "Additional Care Instruction Tag": {
-        "generate": care_tag_label.generate_batch,
-        "template_path": getattr(care_tag_label, "TEMPLATE_PATH", None),
-    },
-    "Look at my back Sticker": {
-        "generate": back_sticker_label.generate_batch,
-        "template_path": getattr(back_sticker_label, "TEMPLATE_PATH", None),
-    },
-    "Two Packs Sticker": {
-        "generate": two_packs_label.generate_batch,
-        "template_path": getattr(two_packs_label, "TEMPLATE_PATH", None),
-    },
-    "KVI Size Sticker - Kids": {
-        "generate": lambda rows: kvi_label.generate_batch(rows, size_type="Kids"),
-        "template_path": kvi_label.TEMPLATES["Kids"],
-    },
-    "KVI Size Sticker - Older Top": {
-        "generate": lambda rows: kvi_label.generate_batch(rows, size_type="Older Top"),
-        "template_path": kvi_label.TEMPLATES["Older Top"],
-    },
-    "KVI Size Sticker - Older Top Bottom": {
-        "generate": lambda rows: kvi_label.generate_batch(rows, size_type="Older Top Bottom"),
-        "template_path": kvi_label.TEMPLATES["Older Top Bottom"],
     },
 }
 
@@ -147,11 +118,35 @@ selected_labels = []
 
 # ---- Section 1: Benefite Tag and Sticker (LIVE) ----
 with st.expander("Benefite Tag and Sticker", expanded=True):
-    cols = st.columns(4)
-    for i, label_name in enumerate(label_options.keys()):
-        with cols[i % 4]:
-            if st.checkbox(label_name, key=f"chk_{i}"):
-                selected_labels.append(label_name)
+    if st.checkbox("Inner & Outer Sticker", key="chk_inner_outer"):
+        selected_labels.append("Inner & Outer Sticker")
+
+    sticker_types = benefite_label.list_sticker_types()
+    if not sticker_types:
+        st.caption("No other Benefite templates found yet in templates/Benefite/.")
+    for sticker_type in sticker_types:
+        variants = benefite_label.list_variants(sticker_type)
+        if not variants:
+            continue
+
+        col1, col2 = st.columns([2, 2])
+        checked = col1.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
+        if len(variants) > 1:
+            sel_variant = col2.selectbox(
+                "Select variant", variants,
+                key=f"benefite_variant_{sticker_type}", label_visibility="collapsed",
+            )
+        else:
+            sel_variant = variants[0]
+
+        if checked:
+            template_path = benefite_label.get_template_path(sticker_type, sel_variant)
+            label_key = f"{sticker_type} ({sel_variant})" if len(variants) > 1 else sticker_type
+            label_options[label_key] = {
+                "generate": lambda rows, tp=template_path: benefite_label.generate_batch(rows, tp),
+                "template_path": template_path,
+            }
+            selected_labels.append(label_key)
 
 # ---- Section 2: Size Tag (LIVE) ----
 with st.expander("Size Tag", expanded=False):
