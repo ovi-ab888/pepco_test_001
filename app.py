@@ -129,6 +129,20 @@ with st.expander("Benefite Tag and Sticker", expanded=True):
         if not variants:
             continue
 
+        auto_size = benefite_label.is_auto_size_type(sticker_type)
+
+        if auto_size:
+            # size auto-matched per row from the row's own Sizes value —
+            # no manual variant picker shown
+            checked = st.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
+            if checked:
+                label_options[sticker_type] = {
+                    "generate": lambda rows, st_=sticker_type: benefite_label.generate_batch_auto_size(rows, st_),
+                    "template_path": benefite_label.get_template_path(sticker_type, variants[0]),
+                }
+                selected_labels.append(sticker_type)
+            continue
+
         col1, col2 = st.columns([2, 2])
         checked = col1.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
         if len(variants) > 1:
