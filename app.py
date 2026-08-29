@@ -55,7 +55,7 @@ pdf_files = st.file_uploader(
     key=f"pdf_uploader_{st.session_state.uploader_key}",
 )
 if not pdf_files:
-    st.info("📄 Please upload a PDF to continue.")
+    st.info("Please upload a PDF to continue.")
     st.stop()
 
 # -------------------------------
@@ -92,10 +92,9 @@ corrected_df = st.data_editor(
 # -------------------------------
 st.subheader("Select Label Types to Generate")
 
-# name -> {"generate": callable(rows) -> pdf_bytes, "template_path": str or None}
-# Inner & Outer Sticker stays separate/fixed (NOT part of the Benefite folder
-# scan) — everything else under Benefite Tag and Sticker is discovered
-# dynamically from templates/Benefite/<Sticker Type>/<variant>.pdf below.
+# name -> {"generate": callable(rows) -> pdf_bytes,
+#          "template_path": str or None,   (used to derive the filename's template-name part)
+#          "template_name": str or None}   (explicit override, e.g. for auto-size types with no single path)
 label_options = {
     "Inner & Outer Sticker": {
         "generate": pad_label.generate_batch,
@@ -105,9 +104,9 @@ label_options = {
 
 
 def _template_name_for(entry: dict) -> str:
-    """The actual template PDF filename (no extension) this label uses —
-    e.g. 'Inner_Outer_Sticker' for templates/Inner_Outer_Sticker.pdf. Falls
-    back to 'Sticker' if no template_path is available yet."""
+    """The name to use in the download filename for this label type."""
+    if entry.get("template_name"):
+        return entry["template_name"]
     path = entry.get("template_path")
     if not path:
         return "Sticker"
@@ -125,22 +124,21 @@ with st.expander("Benefite Tag and Sticker", expanded=True):
     if not sticker_types:
         st.caption("No other Benefite templates found yet in templates/Benefite/.")
     for sticker_type in sticker_types:
-        variants = benefite_label.list_variants(sticker_type)
-        if not variants:
-            continue
-
-        auto_size = benefite_label.is_auto_size_type(sticker_type)
-
-        if auto_size:
-            # size auto-matched per row from the row's own Sizes value —
-            # no manual variant picker shown
+        if benefite_label.is_auto_size_type(sticker_type):
+            # one checkbox — the right variant is picked per-row automatically
+            # by matching each row's Sizes against the available filenames
             checked = st.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
             if checked:
                 label_options[sticker_type] = {
                     "generate": lambda rows, st_=sticker_type: benefite_label.generate_batch_auto_size(rows, st_),
-                    "template_path": benefite_label.get_template_path(sticker_type, variants[0]),
+                    "template_path": None,
+                    "template_name": sticker_type,
                 }
                 selected_labels.append(sticker_type)
+            continue
+
+        variants = benefite_label.list_variants(sticker_type)
+        if not variants:
             continue
 
         col1, col2 = st.columns([2, 2])
