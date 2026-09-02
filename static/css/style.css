@@ -425,3 +425,54 @@ div[data-testid="stFormSubmitButton"] button[kind="primary"] {
 div[data-testid="stButton"] > button[kind="primary"]:hover {
     background: #5568d3 !important;
 }
+
+/* ---------- 8. Labeled pill-tab progress bar (render_progress_tabs) ---------- */
+.pepco-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.pepco-tab {
+    flex: 1;
+    min-width: 140px;
+    text-align: center;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(120, 120, 120, 0.25);
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 14px;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.02);
+}
+.pepco-tab.active {
+    border: 1.5px solid #667eea;
+    color: #8b93f8;
+    background: rgba(102, 126, 234, 0.1);
+}
+
+/* ---------- 9. Bigger, friendlier upload dropzone ---------- */
+[data-testid="stFileUploaderDropzone"] {
+    padding: 2rem 1rem !important;
+    text-align: center !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] svg {
+    width: 32px !important;
+    height: 32px !important;
+    fill: #667eea !important;
+    margin-bottom: 4px;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] span {
+    font-size: 14px !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] small {
+    font-size: 12px !important;
+    color: rgba(255, 255, 255, 0.5) !important;
+}
