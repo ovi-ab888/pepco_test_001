@@ -60,7 +60,7 @@ def render_badge(text: str, muted: bool = False) -> None:
 
 
 def render_steps(current_step: int, total_steps: int = 3) -> None:
-    """Top-right 1-2-3 step indicator shown above each stage of the flow.
+    """Top-right 1-2-3 circle step indicator (compact version).
 
     Usage (top of each stage in app.py):
         theme.render_steps(1)   # Upload
@@ -72,6 +72,22 @@ def render_steps(current_step: int, total_steps: int = 3) -> None:
         active_cls = " active" if i == current_step else ""
         circles += f'<span class="pepco-step-circle{active_cls}">{i}</span>'
     st.markdown(f'<div class="pepco-steps">{circles}</div>', unsafe_allow_html=True)
+
+
+def render_progress_tabs(current_step: int, labels: list[str]) -> None:
+    """Wide labeled pill-tab progress bar shown across the top of a stage —
+    e.g. "1. Upload / Extract", "2. Review", "3. Select & generate". Purely
+    visual (not clickable — this app is a single continuous page, not
+    separate screens), but marks which stage the user is currently on.
+
+    Usage:
+        theme.render_progress_tabs(1, ["Upload / Extract", "Review", "Select & generate"])
+    """
+    tabs_html = ""
+    for i, label in enumerate(labels, start=1):
+        active_cls = " active" if i == current_step else ""
+        tabs_html += f'<div class="pepco-tab{active_cls}">{i}. {label}</div>'
+    st.markdown(f'<div class="pepco-tabs">{tabs_html}</div>', unsafe_allow_html=True)
 
 
 def render_section_row(label: str, badge_text: str = None, muted_badge: bool = False) -> None:
