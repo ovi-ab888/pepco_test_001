@@ -75,10 +75,9 @@ def render_steps(current_step: int, total_steps: int = 3) -> None:
 
 
 def render_progress_tabs(current_step: int, labels: list[str]) -> None:
-    """Wide labeled pill-tab progress bar shown across the top of a stage —
-    e.g. "1. Upload / Extract", "2. Review", "3. Select & generate". Purely
-    visual (not clickable — this app is a single continuous page, not
-    separate screens), but marks which stage the user is currently on.
+    """Wide labeled pill-tab progress bar (kept for optional single use at
+    the very top of the page). For inline per-section markers, use
+    render_stage_line() instead — it's much lighter.
 
     Usage:
         theme.render_progress_tabs(1, ["Upload / Extract", "Review", "Select & generate"])
@@ -88,6 +87,33 @@ def render_progress_tabs(current_step: int, labels: list[str]) -> None:
         active_cls = " active" if i == current_step else ""
         tabs_html += f'<div class="pepco-tab{active_cls}">{i}. {label}</div>'
     st.markdown(f'<div class="pepco-tabs">{tabs_html}</div>', unsafe_allow_html=True)
+
+
+def render_stage_line(current_step: int, labels: list[str]) -> None:
+    """Compact one-line stage marker — small dots + the current stage's
+    label, instead of a full tab bar. Meant to repeat cheaply at the top
+    of every section without feeling heavy.
+
+    Usage:
+        theme.render_stage_line(2, ["Upload / Extract", "Review", "Select & generate"])
+        -> ● ─ ● ─ ○   Step 2 of 3 — Review
+    """
+    total = len(labels)
+    dots = ""
+    for i in range(1, total + 1):
+        state = "done" if i < current_step else ("current" if i == current_step else "")
+        dots += f'<span class="pepco-dot {state}"></span>'
+        if i < total:
+            line_state = "done" if i < current_step else ""
+            dots += f'<span class="pepco-dot-line {line_state}"></span>'
+    label = labels[current_step - 1]
+    st.markdown(
+        f'<div class="pepco-stage-line">'
+        f'<span class="pepco-dots">{dots}</span>'
+        f'<span class="pepco-stage-text">Step {current_step} of {total} — {label}</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def render_section_row(label: str, badge_text: str = None, muted_badge: bool = False) -> None:
