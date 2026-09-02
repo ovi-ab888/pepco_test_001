@@ -476,3 +476,43 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
     font-size: 12px !important;
     color: rgba(255, 255, 255, 0.5) !important;
 }
+
+/* ---------- 10. Compact stage line (render_stage_line) ---------- */
+.pepco-stage-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.pepco-dots {
+    display: flex;
+    align-items: center;
+}
+.pepco-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: rgba(120, 120, 120, 0.35);
+    display: inline-block;
+}
+.pepco-dot.done {
+    background: #667eea;
+}
+.pepco-dot.current {
+    background: #8b93f8;
+    width: 9px;
+    height: 9px;
+}
+.pepco-dot-line {
+    width: 16px;
+    height: 1px;
+    background: rgba(120, 120, 120, 0.35);
+    display: inline-block;
+}
+.pepco-dot-line.done {
+    background: #667eea;
+}
+.pepco-stage-text {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+}
