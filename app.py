@@ -115,15 +115,25 @@ for r in results:
 
     item_en = str(r.get("Item_name_EN", "")).strip()
     if not translations_df.empty and "EN" in translations_df.columns and item_en:
-        sheet_en = translations_df["EN"].astype(str).str.strip().str.lower()
-        match = translations_df[sheet_en == item_en.lower()]
+        import difflib
+        import re as _re
+
+        def _normalize(s):
+            return _re.sub(r"[^a-z0-9]", "", str(s).lower())
+
+        sheet_en_raw = translations_df["EN"].astype(str)
+        sheet_en_norm = sheet_en_raw.apply(_normalize)
+        target_norm = _normalize(item_en)
+
+        match_mask = sheet_en_norm == target_norm
+        match = translations_df[match_mask]
+
         if not match.empty:
             r["product_name"] = hx.format_product_translations(item_en, match.iloc[0])
         else:
-            st.warning(
-                f"⚠️ '{item_en}' — translation sheet-e exact match paoa jayni. "
-                f"Sheet-er 'EN' column-e exact eki spelling ache kina check koro."
-            )
+            close = difflib.get_close_matches(item_en, sheet_en_raw.tolist(), n=3, cutoff=0.5)
+            hint = f" Kache-kache ache: {close}" if close else " Kache-kache kichu paoa jayni."
+            st.warning(f"⚠️ '{item_en}' — translation sheet-e exact match paoa jayni.{hint}")
 
 # ----------------------------------------------------------------
 # 5) Preview extracted data
