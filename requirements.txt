@@ -1,8 +1,5 @@
 streamlit
-pandas
-openpyxl
-xlrd
 pymupdf
-qrcode
-python-barcode
-pillow
+pandas
+requests
+ow
