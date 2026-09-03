@@ -89,6 +89,17 @@ designer_name = st.text_input("Designer", value="")
 # ----------------------------------------------------------------
 translations_df = hx.load_product_translations()
 
+if translations_df.empty:
+    st.warning(
+        "⚠️ Product translation sheet theke kono data load hoyni (Google Sheet fetch fail "
+        "hoyeche, othoba sheet khali). product_name field khali thakbe."
+    )
+elif "EN" not in translations_df.columns:
+    st.warning(
+        f"⚠️ Translation sheet-e 'EN' column paoa jayni. Available columns: "
+        f"{list(translations_df.columns)}"
+    )
+
 for r in results:
     r["washing_code"] = hx.WASHING_CODES.get(washing_code_key, "")
     r["Designer"] = designer_name
@@ -102,10 +113,17 @@ for r in results:
         else:
             st.warning("Ei PLN price-er jonno price ladder e match paini.")
 
-    if not translations_df.empty and r.get("Item_name_EN"):
-        match = translations_df[translations_df.get("EN", "") == r["Item_name_EN"]]
+    item_en = str(r.get("Item_name_EN", "")).strip()
+    if not translations_df.empty and "EN" in translations_df.columns and item_en:
+        sheet_en = translations_df["EN"].astype(str).str.strip().str.lower()
+        match = translations_df[sheet_en == item_en.lower()]
         if not match.empty:
-            r["product_name"] = hx.format_product_translations(r["Item_name_EN"], match.iloc[0])
+            r["product_name"] = hx.format_product_translations(item_en, match.iloc[0])
+        else:
+            st.warning(
+                f"⚠️ '{item_en}' — translation sheet-e exact match paoa jayni. "
+                f"Sheet-er 'EN' column-e exact eki spelling ache kina check koro."
+            )
 
 # ----------------------------------------------------------------
 # 5) Preview extracted data
