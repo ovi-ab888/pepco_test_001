@@ -47,7 +47,7 @@ def _reset_all():
     st.session_state.uploader_key += 1
 
 
-theme.render_stage_line(1, ["Upload / Extract", "Review", "Select & generate"])
+theme.render_stage_banner(1, ["Upload / Extract", "Review", "Select & generate"])
 st.button("Upload New File", on_click=_reset_all)
 
 pdf_files = st.file_uploader(
@@ -80,7 +80,7 @@ if (
 # -------------------------------
 # 3. ডেটা এডিটর
 # -------------------------------
-theme.render_stage_line(2, ["Upload / Extract", "Review", "Select & generate"])
+theme.render_stage_banner(2, ["Upload / Extract", "Review", "Select & generate"])
 st.subheader("Review & correct extracted data")
 st.caption("Every field is editable — fix anything the extractor got wrong.")
 corrected_df = st.data_editor(
@@ -93,7 +93,7 @@ corrected_df = st.data_editor(
 # -------------------------------
 # 4. লেবেল টাইপ সিলেক্ট ও জেনারেশন
 # -------------------------------
-theme.render_stage_line(3, ["Upload / Extract", "Review", "Select & generate"])
+theme.render_stage_banner(3, ["Upload / Extract", "Review", "Select & generate"])
 st.subheader("Select Label Types to Generate")
 
 # name -> {"generate": callable(rows) -> pdf_bytes,
