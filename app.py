@@ -15,7 +15,7 @@ import streamlit as st
 from datetime import datetime
 
 import hangtag_extractor as hx
-import hangtag_front as hf
+from labels import hangtag_front as hf
 
 st.set_page_config(page_title="PEPCO Hangtag Front Generator", page_icon="🏷️", layout="wide")
 st.title("🏷️ PEPCO Hangtag — Front Side Generator")
