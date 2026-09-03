@@ -115,10 +115,36 @@ PAD_BACK_RECTS = [
     fitz.Rect(1005.6, 225.5, 1136.0, 551.5),
 ]
 
-# Pad header — reuses the SAME shared 8-field mapping as Inner/Outer/Pad
-# (Order_ID, Style, Colour, Supplier_product_code, Item_classification,
-# Supplier_name, today_date, Designer). Loaded from the existing
-# config/pad_header_mapping.json — not redefined here.
+# Pad header — positions extracted from Pad.pdf (same 8-field shared
+# schema as Inner/Outer/Pad, but only these 5 have a printed slot on the
+# Hangtag pad: Order_ID, Item_classification, Style, Colour, Designer).
+# Supplier_product_code / Supplier_name / today_date have no visible slot
+# here. Tech Pack Rcvd / Last Revision Date / Final Approved Date /
+# Customer stay blank (confirmed - manual fields, not data-driven).
+PAD_HEADER_FIELDS = [
+    # column_name,        x,     baseline_y, fontsize
+    ("Order_ID",          98.0,  131.5, 9.0),
+    ("Item_classification", 98.0, 146.5, 9.0),
+    ("Style",              98.0, 161.5, 9.0),
+    ("Colour",            101.0, 176.5, 9.0),
+    ("Designer",          474.0,  73.7, 7.9),
+    ("Dept",              608.0,  85.0, 7.9),
+]
+# Big COLOUR swatch name (top-right, e.g. "BLACK") — centered in this bbox
+PAD_COLOUR_SWATCH_NAME_BBOX = (1077.4, 67.8, 1122.8, 82.8)
+PAD_COLOUR_SWATCH_NAME_SIZE = 12.0
+
+
+def fill_pad_header(page, row):
+    """Fill the Pad header fields directly on the (already-opened) pad page."""
+    for col, x, y, fontsize in PAD_HEADER_FIELDS:
+        value = row.get(col, "")
+        if value:
+            page.insert_text((x, y), str(value), fontsize=fontsize, fontname="helv", color=BLACK)
+    colour = row.get("Colour", "")
+    if colour:
+        _insert_aligned_text(page, colour.upper(), PAD_COLOUR_SWATCH_NAME_BBOX,
+                              PAD_COLOUR_SWATCH_NAME_SIZE, align="c", color=BLACK)
 
 
 # ================================================================
@@ -254,16 +280,17 @@ def generate_batch(rows):
     return [generate_single(row) for row in rows]
 
 
-def generate_pad(front_bytes, back_bytes, template_path=TEMPLATE_PAD):
+def generate_pad(front_bytes, back_bytes, row, template_path=TEMPLATE_PAD):
     """
     Composite 1x Front + 7x Back (same back, repeated) onto the Pad
-    template at the 8 slot rectangles found in Pad.pdf.
-    Pad header (Order ID/Style/Colour/etc, 8-field shared mapping) should
-    be filled separately using the existing pad_header_mapping.json flow
-    BEFORE calling this, same as Inner+Outer -> Pad.
+    template at the 8 slot rectangles found in Pad.pdf, and fill the Pad
+    header (Order ID / Item / Style / Colour / Designer / Department)
+    from `row` using the same dict passed to generate_single().
     """
     pad_doc = fitz.open(template_path)
     pad_page = pad_doc[0]
+
+    fill_pad_header(pad_page, row)
 
     front_src = fitz.open("pdf", front_bytes)
     pad_page.show_pdf_page(PAD_FRONT_RECT, front_src, 0)
