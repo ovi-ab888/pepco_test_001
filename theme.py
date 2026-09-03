@@ -116,6 +116,20 @@ def render_stage_line(current_step: int, labels: list[str]) -> None:
     )
 
 
+def render_stage_banner(current_step: int, labels: list[str]) -> None:
+    """Big centered banner showing just the current stage — e.g. a wide
+    bordered box reading "2. Review". One call per section in app.py.
+
+    Usage:
+        theme.render_stage_banner(2, ["Upload / Extract", "Review", "Select & generate"])
+    """
+    label = labels[current_step - 1]
+    st.markdown(
+        f'<div class="pepco-stage-banner">{current_step}. {label}</div>',
+        unsafe_allow_html=True,
+    )
+
+
 def render_section_row(label: str, badge_text: str = None, muted_badge: bool = False) -> None:
     """Inline label + optional badge, for use just inside an st.expander
     body (Streamlit expander titles are plain text only, so this renders
