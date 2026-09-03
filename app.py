@@ -1,153 +1,319 @@
-"""
-app.py — PEPCO Hangtag (Swingtag) Generator — STANDALONE, Hangtag-only.
-
-Folder layout expected (same folder as this file):
-    app.py
-    hangtag_extractor.py
-    hangtag_front.py
-    templates/Hangtag/front_side.pdf   <- your cleaned template
-
-Run:  streamlit run app.py
-
-STATUS:
-  ✅ Front Side — working (extract -> fill -> download)
-  ⏳ Back Side  — not wired yet (add hangtag_back.py the same way once ready)
-  ⏳ Pad        — not wired yet (add hangtag_pad.py the same way once ready)
-"""
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
 
 import streamlit as st
-from datetime import datetime
+import pandas as pd
+import io
+import json
+import zipfile
 
-import hangtag_extractor as hx
-import hangtag_front as hf
+import theme
+import auth
 
-st.set_page_config(page_title="PEPCO Hangtag Generator", page_icon="🏷️", layout="wide")
-st.title("🏷️ PEPCO Hangtag Generator")
-st.caption("Front Side is live. Back Side and Pad are coming in the next steps.")
+# পেজ কনফিগারেশন
+st.set_page_config(page_title="PEPCO Label Automation", layout="wide")
+theme.load_css()  # login page-ও এই style পাবে
 
-# ----------------------------------------------------------------
-# 1) Upload PEPCO tech-pack PDF
-# ----------------------------------------------------------------
-st.header("1. Upload Tech Pack PDF")
-uploaded_pdf = st.file_uploader("PEPCO tech pack PDF", type=["pdf"])
-
-if uploaded_pdf is None:
-    st.info("PDF upload korle extraction shuru hobe.")
+# -------------------------------
+# 0. লগইন চেক (সবার আগে)
+# -------------------------------
+if not auth.check_login():
     st.stop()
 
-results, pl_price_detected, flags = hx.extract_data_from_pdf(uploaded_pdf)
+auth.logout_button()
 
-if flags.get("error"):
-    st.error(f"Extraction failed: {flags['error']}")
+# সব লেবেল জেনারেটর মডিউল ইমপোর্ট করুন
+import labels.pad_label as pad_label
+import labels.inner_label as inner_label
+import labels.outer_label as outer_label
+import labels.benefite as benefite_label
+import labels.size_tag as size_tag_label
+import labels.hangtag_front as hangtag_front_label  # <-- NEW: Hangtag Front Side
+import extractor
+import hangtag_extractor  # <-- NEW: Hangtag-specific field extraction (Collection, Colour_SKU, Batch, barcode, price ladder, product_name, ...)
+
+theme.main_header("PEPCO Label Automation", "Upload PEPCO order/PO PDF and generate labels effortlessly.")
+
+# -------------------------------
+# 1. ফাইল আপলোড সেকশন
+# -------------------------------
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
+
+
+def _reset_all():
+    for k in list(st.session_state.keys()):
+        if k.startswith(("pdf_", "chk_", "size_tag_", "include_size_tag", "hangtag_", "care_", "benefite_")):
+            st.session_state.pop(k, None)
+    st.session_state.uploader_key += 1
+
+
+st.button("Upload New File", on_click=_reset_all)
+
+pdf_files = st.file_uploader(
+    "Upload PEPCO PDF",
+    type=["pdf"],
+    accept_multiple_files=True,
+    key=f"pdf_uploader_{st.session_state.uploader_key}",
+)
+if not pdf_files:
+    st.info("Please upload a PDF to continue.")
     st.stop()
 
-if not results:
-    st.error("Kono data extract kora jayni. PDF format check koro.")
-    st.stop()
+# -------------------------------
+# 2. ডেটা এক্সট্রাকশন
+# -------------------------------
+if (
+    "pdf_extracted_df" not in st.session_state
+    or st.session_state.get("pdf_uploader_names") != [f.name for f in pdf_files]
+):
+    with st.spinner("Extracting data from PDF..."):
+        extracted_df = extractor.extract_rows_from_pdfs(pdf_files)
+    if extracted_df.empty:
+        st.error("Couldn't extract data from this PDF — check it's the right file type.")
+        st.stop()
+    extracted_df["Designer"] = auth.get_display_name()  # from the logged-in user, editable below
+    st.session_state["pdf_filename_row"] = extracted_df.iloc[0].to_dict()
+    st.session_state["pdf_extracted_df"] = extracted_df.drop(columns=["_temp_sku_for_filename"])
+    st.session_state["pdf_uploader_names"] = [f.name for f in pdf_files]
 
-st.success(f"{len(results)} ta row extract hoise.")
+# -------------------------------
+# 3. ডেটা এডিটর
+# -------------------------------
+st.subheader("Review & correct extracted data")
+st.caption("Every field is editable — fix anything the extractor got wrong.")
+corrected_df = st.data_editor(
+    st.session_state["pdf_extracted_df"],
+    use_container_width=True,
+    num_rows="fixed",
+    key="pdf_data_editor",
+)
 
-# ----------------------------------------------------------------
-# 2) Manual fallbacks (Collection / Colour) if not auto-detected
-# ----------------------------------------------------------------
-st.header("2. Manual Fields (jodi lage)")
+# -------------------------------
+# 4. লেবেল টাইপ সিলেক্ট ও জেনারেশন
+# -------------------------------
+st.subheader("Select Label Types to Generate")
 
-col1, col2 = st.columns(2)
-with col1:
-    if flags.get("collection_manual"):
-        manual_collection = st.text_input("Collection (auto-detect hoyni, likho)")
-        if manual_collection:
-            for r in results:
-                r["Collection"] = manual_collection
-with col2:
-    if flags.get("colour_manual"):
-        manual_colour = st.text_input("Colour (auto-detect hoyni, likho)")
-        if manual_colour:
-            for r in results:
-                r["Colour"] = manual_colour.upper()
+# name -> {"generate": callable(rows) -> pdf_bytes,
+#          "template_path": str or None,   (used to derive the filename's template-name part)
+#          "template_name": str or None}   (explicit override, e.g. for auto-size types with no single path)
+label_options = {
+    "Inner & Outer Sticker": {
+        "generate": pad_label.generate_batch,
+        "template_path": getattr(pad_label, "TEMPLATE_PATH", None),
+    },
+}
 
-# ----------------------------------------------------------------
-# 3) Washing Code + PLN Price + Cotton (manual controls, per SS27 app)
-# ----------------------------------------------------------------
-st.header("3. Washing Code / Price / Material")
+FILENAME_MAPPING_PATH = os.path.join(os.path.dirname(__file__), "config", "filename_mapping.json")
+try:
+    with open(FILENAME_MAPPING_PATH, "r") as f:
+        FILENAME_MAPPING = json.load(f)
+except FileNotFoundError:
+    FILENAME_MAPPING = {}
 
-wc1, wc2, wc3 = st.columns(3)
-with wc1:
-    washing_code_key = st.selectbox(
-        "Washing Code",
-        options=list(hx.WASHING_CODES.keys()),
-        format_func=lambda k: f"Code {k}",
-    )
-with wc2:
-    pln_price_raw = st.text_input("PLN Sales Price", value=pl_price_detected or "")
-with wc3:
-    is_100_cotton = st.checkbox("100% Single Material (Cotton seal dekhabe)")
 
-pln_price = None
-if pln_price_raw.strip():
-    try:
-        pln_price = float(pln_price_raw.replace(",", "."))
-    except ValueError:
-        st.warning("PLN price ta shothik number na — khali rakhte paro.")
+def _template_name_for(entry: dict) -> str:
+    """The name to use in the download filename for this label type.
+    Checks config/filename_mapping.json first (template filename / sticker
+    type -> desired download name); falls back to the raw template
+    filename (no extension) if there's no mapping entry."""
+    if entry.get("template_name"):
+        raw_name = entry["template_name"]
+    else:
+        path = entry.get("template_path")
+        raw_name = os.path.splitext(os.path.basename(path))[0] if path else "Sticker"
+    return FILENAME_MAPPING.get(raw_name, raw_name)
 
-designer_name = st.text_input("Designer", value="")
 
-# ----------------------------------------------------------------
-# 4) Enrich rows: washing_code, prices, Cotton, product_name, Designer
-# ----------------------------------------------------------------
-translations_df = hx.load_product_translations()
-material_df = hx.load_material_translations()
+selected_labels = []
 
-for r in results:
-    r["washing_code"] = hx.WASHING_CODES.get(washing_code_key, "")
-    r["Designer"] = designer_name
-    r["Cotton"] = "Z" if is_100_cotton else ""
+# ---- Section 1: Benefite Tag and Sticker (LIVE) ----
+with st.expander("Benefite Tag and Sticker", expanded=True):
+    if st.checkbox("Inner & Outer Sticker", key="chk_inner_outer"):
+        selected_labels.append("Inner & Outer Sticker")
 
-    if pln_price is not None:
-        currency_values = hx.find_closest_price(pln_price)
-        if currency_values:
-            r.update(currency_values)
-            r["PLN"] = hx.format_number(pln_price, "PLN")
-        else:
-            st.warning("Ei PLN price-er jonno price ladder e match paini.")
+    sticker_types = benefite_label.list_sticker_types()
+    if not sticker_types:
+        st.caption("No other Benefite templates found yet in templates/Benefite/.")
+    for sticker_type in sticker_types:
+        if benefite_label.is_auto_size_type(sticker_type):
+            # one checkbox — the right variant is picked per-row automatically
+            # by matching each row's Sizes against the available filenames
+            checked = st.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
+            if checked:
+                label_options[sticker_type] = {
+                    "generate": lambda rows, st_=sticker_type: benefite_label.generate_batch_auto_size(rows, st_),
+                    "template_path": None,
+                    "template_name": sticker_type,
+                }
+                selected_labels.append(sticker_type)
+            continue
 
-    if not translations_df.empty and "Item_name_EN" in r:
-        match = translations_df[translations_df.get("EN", "") == r.get("Item_name_EN", "")]
-        if not match.empty:
-            row_t = match.iloc[0]
-            r["product_name"] = hx.format_product_translations(r.get("Item_name_EN", ""), row_t)
+        variants = benefite_label.list_variants(sticker_type)
+        if not variants:
+            continue
 
-# ----------------------------------------------------------------
-# 5) Preview extracted data
-# ----------------------------------------------------------------
-st.header("4. Extracted Data (preview)")
-st.dataframe(results, use_container_width=True)
-
-# ----------------------------------------------------------------
-# 6) Generate Front Side
-# ----------------------------------------------------------------
-st.header("5. Generate Front Side")
-
-if st.button("🏷️ Generate Front Side PDFs", type="primary"):
-    try:
-        front_pdfs = hf.generate_batch(results)
-        st.success(f"{len(front_pdfs)} ta Front Side PDF generate hoise.")
-        for i, (row, pdf_bytes) in enumerate(zip(results, front_pdfs), start=1):
-            fname = f"Hangtag_Front_{row.get('Order_ID','row')}_{i}.pdf"
-            st.download_button(
-                label=f"⬇️ Download {fname}",
-                data=pdf_bytes,
-                file_name=fname,
-                mime="application/pdf",
-                key=f"dl_{i}",
+        col1, col2 = st.columns([2, 2])
+        checked = col1.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
+        if len(variants) > 1:
+            sel_variant = col2.selectbox(
+                "Select variant", variants,
+                key=f"benefite_variant_{sticker_type}", label_visibility="collapsed",
             )
-    except FileNotFoundError:
-        st.error(
-            "templates/Hangtag/front_side.pdf paoa jayni. "
-            "Cleaned template ta oi path-e rakho, tarpor abar try koro."
-        )
-    except Exception as e:
-        st.error(f"Generate korte giye error: {e}")
+        else:
+            sel_variant = variants[0]
 
-st.divider()
-st.caption(f"Generated on {datetime.today().strftime('%d-%m-%Y')} · Hangtag module v0.1 (Front only)")
+        if checked:
+            template_path = benefite_label.get_template_path(sticker_type, sel_variant)
+            label_key = f"{sticker_type} ({sel_variant})" if len(variants) > 1 else sticker_type
+            label_options[label_key] = {
+                "generate": lambda rows, tp=template_path: benefite_label.generate_batch(rows, tp),
+                "template_path": template_path,
+            }
+            selected_labels.append(label_key)
+
+# ---- Section 2: Size Tag (LIVE) ----
+with st.expander("Size Tag", expanded=False):
+    size_types = size_tag_label.list_types()
+    if not size_types:
+        st.caption("No Size Tag templates found yet in templates/Sizetag/.")
+    else:
+        c1, c2, c3, c4 = st.columns(4)
+
+        sel_type = c1.selectbox("Select Type", size_types, key="size_tag_type")
+
+        departments = size_tag_label.list_departments(sel_type) if sel_type else []
+        sel_dept = c2.selectbox("Select Department", departments, key="size_tag_dept") if departments else None
+
+        customers = size_tag_label.list_customers(sel_type, sel_dept) if sel_dept else []
+        sel_cust = c3.selectbox("Select Customer", customers, key="size_tag_cust") if customers else None
+
+        sizes = size_tag_label.list_sizes(sel_type, sel_dept, sel_cust) if sel_cust else []
+        sel_size = c4.selectbox("Select Size", sizes, key="size_tag_size") if sizes else None
+
+        include_size_tag = st.checkbox("Generate Size Tag", key="include_size_tag", disabled=not sel_size)
+        if include_size_tag and sel_size:
+            template_path = size_tag_label.get_template_path(sel_type, sel_dept, sel_cust, sel_size)
+            size_tag_key = f"Size Tag ({sel_type}/{sel_dept}/{sel_cust}/{sel_size})"
+            label_options[size_tag_key] = {
+                "generate": lambda rows, tp=template_path: size_tag_label.generate_batch(rows, tp),
+                "template_path": template_path,
+            }
+            selected_labels.append(size_tag_key)
+
+# ---- Section 3: Hangtag (LIVE — Front Side only for now; Back Side + Pad coming next) ----
+with st.expander("Hangtag", expanded=False):
+    h1, h2, h3 = st.columns(3)
+    hangtag_washing_key = h1.selectbox(
+        "Select Washing Code",
+        options=list(hangtag_extractor.WASHING_CODES.keys()),
+        format_func=lambda k: f"Code {k}",
+        key="hangtag_washing",
+    )
+    hangtag_price_raw = h2.text_input("Enter PLN Price", key="hangtag_price")
+    hangtag_cotton = h3.checkbox("100% Single Material", key="hangtag_composition")
+
+    include_hangtag_front = st.checkbox("Generate Hangtag (Front Side)", key="chk_hangtag_front")
+
+    if include_hangtag_front:
+        def _generate_hangtag_front(
+            rows,
+            _pdf_files=pdf_files,
+            _washing_key=hangtag_washing_key,
+            _price_raw=hangtag_price_raw,
+            _cotton=hangtag_cotton,
+            _designer=auth.get_display_name(),
+        ):
+            # Hangtag needs fields the shared `extractor.py` doesn't produce
+            # (Collection, Colour_SKU, Batch, barcode, price ladder,
+            # product_name) — so we re-run the PDF through
+            # hangtag_extractor here, then layer the manual controls on top.
+            src = _pdf_files[0]
+            src.seek(0)
+            hangtag_rows, pl_price_detected, flags = hangtag_extractor.extract_data_from_pdf(src)
+            if flags.get("error") or not hangtag_rows:
+                raise ValueError(flags.get("error", "Hangtag data extract kora jayni."))
+
+            translations_df = hangtag_extractor.load_product_translations()
+
+            pln_price = None
+            if _price_raw.strip():
+                try:
+                    pln_price = float(_price_raw.replace(",", "."))
+                except ValueError:
+                    pln_price = None
+
+            for r in hangtag_rows:
+                r["washing_code"] = hangtag_extractor.WASHING_CODES.get(_washing_key, "")
+                r["Cotton"] = "Z" if _cotton else ""
+                r["Designer"] = _designer
+
+                if pln_price is not None:
+                    currency_values = hangtag_extractor.find_closest_price(pln_price)
+                    if currency_values:
+                        r.update(currency_values)
+                        r["PLN"] = hangtag_extractor.format_number(pln_price, "PLN")
+
+                if not translations_df.empty and r.get("Item_name_EN"):
+                    match = translations_df[translations_df.get("EN", "") == r["Item_name_EN"]]
+                    if not match.empty:
+                        r["product_name"] = hangtag_extractor.format_product_translations(
+                            r["Item_name_EN"], match.iloc[0]
+                        )
+
+            return hangtag_front_label.generate_batch_pdf(hangtag_rows)
+
+        label_options["Hangtag (Front Side)"] = {
+            "generate": _generate_hangtag_front,
+            "template_path": getattr(hangtag_front_label, "TEMPLATE_PATH", None),
+            "template_name": "Hangtag_Front",
+        }
+        selected_labels.append("Hangtag (Front Side)")
+
+# ---- Section 4: Care Label (UI ONLY — not wired up yet) ----
+with st.expander("Care Label", expanded=False):
+    c1, c2 = st.columns(2)
+    c1.text_input("Enter Composition", key="care_composition", disabled=True)
+    c2.selectbox("Select Washing Code", [""], key="care_washing", disabled=True)
+
+if selected_labels and st.button("Generate Selected Labels", type="primary"):
+    rows = corrected_df.to_dict(orient="records")
+    filename_row = dict(st.session_state.get("pdf_filename_row", {}))
+    filename_row.update(rows[0])
+
+    with st.spinner(f"Generating {len(selected_labels)} label type(s)..."):
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for label_name in selected_labels:
+                entry = label_options[label_name]
+                pdf_bytes = entry["generate"](rows)
+
+                template_name = _template_name_for(entry)
+                final_filename = extractor.build_filename(
+                    filename_row, extension="pdf", template_name=template_name
+                )
+
+                zip_file.writestr(final_filename, pdf_bytes)
+        zip_buffer.seek(0)
+
+    st.success(f"Done! {len(selected_labels)} label type(s) generated and packaged in a ZIP file.")
+
+    # ZIP filename = Supplier_product_code value
+    supplier_code = str(filename_row.get("Supplier_product_code", "UNKNOWN")).strip() or "UNKNOWN"
+    zip_name = f"{supplier_code}.zip"
+
+    st.download_button(
+        "Download All Labels (ZIP)",
+        data=zip_buffer,
+        file_name=zip_name,
+        mime="application/zip",
+        use_container_width=True,
+    )
+
+st.markdown(
+    '<div class="footer-border" style="padding:14px 0; text-align:center; margin-top:1rem;">'
+    '<span class="footer-text">Developed by Ovi | All Rights Reserved. &copy; 2026 PEPCO Automation System</span>'
+    '</div>',
+    unsafe_allow_html=True,
+)
