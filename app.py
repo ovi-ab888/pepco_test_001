@@ -104,9 +104,19 @@ preview_row_idx = st.selectbox("Preview korার jonno row select koro", option
                                 format_func=lambda i: f"Row {i+1} — {rows[i].get('Order_ID','')}")
 preview_row = rows[preview_row_idx]
 
+pn_debug = str(preview_row.get("product_name", ""))
+st.code(f"product_name length: {len(pn_debug)} chars\nFirst 120 chars: {pn_debug[:120]!r}", language=None)
+
 adj_col, prev_col = st.columns([1, 1])
 
 with adj_col:
+    st.subheader("Fonts (optional upload — for testing before committing to repo)")
+    uploaded_product_font = st.file_uploader("Product Name font (Arial.ttf)", type=["ttf", "otf"], key="pf_upload")
+    uploaded_price_font = st.file_uploader("Price font (MyriadPro-Semibold.ttf/otf)", type=["ttf", "otf"], key="prf_upload")
+
+    product_font_bytes = uploaded_product_font.read() if uploaded_product_font else None
+    price_font_bytes = uploaded_price_font.read() if uploaded_price_font else None
+
     st.subheader("Product Name box")
     pn = mapping.get("product_name", {"bbox": [6.9, 32.5, 124.3, 134.6], "fontsize": 4.4, "color": "black"})
     pn_x0 = st.number_input("x0", value=float(pn["bbox"][0]), key="pn_x0")
@@ -145,7 +155,9 @@ with adj_col:
 with prev_col:
     st.subheader("Preview")
     try:
-        doc = hf.fill_front_side(preview_row, mapping=mapping)
+        doc = hf.fill_front_side(preview_row, mapping=mapping,
+                                  product_font_bytes=product_font_bytes,
+                                  price_font_bytes=price_font_bytes)
         pix = doc[0].get_pixmap(dpi=200)
         img_bytes = pix.tobytes("png")
         doc.close()
