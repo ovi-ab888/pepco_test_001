@@ -114,8 +114,17 @@ with adj_col:
     uploaded_product_font = st.file_uploader("Product Name font (Arial.ttf)", type=["ttf", "otf"], key="pf_upload")
     uploaded_price_font = st.file_uploader("Price font (MyriadPro-Semibold.ttf/otf)", type=["ttf", "otf"], key="prf_upload")
 
-    product_font_bytes = uploaded_product_font.read() if uploaded_product_font else None
-    price_font_bytes = uploaded_price_font.read() if uploaded_price_font else None
+    if uploaded_product_font is not None:
+        uploaded_product_font.seek(0)
+        product_font_bytes = uploaded_product_font.read()
+    else:
+        product_font_bytes = None
+
+    if uploaded_price_font is not None:
+        uploaded_price_font.seek(0)
+        price_font_bytes = uploaded_price_font.read()
+    else:
+        price_font_bytes = None
 
     st.subheader("Product Name box")
     pn = mapping.get("product_name", {"bbox": [6.9, 32.5, 124.3, 134.6], "fontsize": 4.4, "color": "black"})
@@ -155,9 +164,14 @@ with adj_col:
 with prev_col:
     st.subheader("Preview")
     try:
-        doc = hf.fill_front_side(preview_row, mapping=mapping,
-                                  product_font_bytes=product_font_bytes,
-                                  price_font_bytes=price_font_bytes)
+        import warnings
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            doc = hf.fill_front_side(preview_row, mapping=mapping,
+                                      product_font_bytes=product_font_bytes,
+                                      price_font_bytes=price_font_bytes)
+            for w in caught:
+                st.warning(f"⚠️ {w.message}")
         pix = doc[0].get_pixmap(dpi=200)
         img_bytes = pix.tobytes("png")
         doc.close()
