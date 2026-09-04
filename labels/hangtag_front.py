@@ -90,8 +90,18 @@ def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, m
         elif os.path.exists(UNICODE_FONT_PATH):
             page.insert_font(fontfile=UNICODE_FONT_PATH, fontname="unicode_font")
             fontname = "unicode_font"
-        page.insert_textbox(rect, str(row["product_name"]), fontsize=pn_cfg["fontsize"],
-                             fontname=fontname, color=color, align=0)
+        rc = page.insert_textbox(rect, str(row["product_name"]), fontsize=pn_cfg["fontsize"],
+                                  fontname=fontname, color=color, align=0)
+        if rc < 0:
+            # Negative return = text did NOT fit in the box at this fontsize.
+            # PyMuPDF still draws what fits, but if fontsize is too big for
+            # the box it can end up drawing ~nothing visible. Surface this.
+            import warnings
+            warnings.warn(
+                f"product_name textbox overflow: {abs(rc):.1f}pt of text didn't fit "
+                f"in the box at fontsize={pn_cfg['fontsize']}. Box too small or "
+                f"fontsize too big — shrink fontsize or enlarge bbox."
+            )
 
     price_fontname = "helv"
     price_fontbuffer = None
