@@ -4,7 +4,11 @@
     "bbox": [6.9, 32.5, 124.3, 134.6],
     "fontsize": 4,
     "color": "black",
-    "align": "justify"
+    "align": "justify",
+    "auto_fit": true,
+    "max_fontsize": 5.5,
+    "min_fontsize": 3.5,
+    "fit_step": 0.1
   },
   "prices": {
     "EUR": { "bbox": [73.8, 137.6, 111.0, 163.3], "fontsize": 21.0 },
