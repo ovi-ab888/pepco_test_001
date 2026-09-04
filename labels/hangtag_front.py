@@ -54,20 +54,26 @@ SAMPLE_ROW = {
 }
 
 
-def _insert_right_aligned(page, text, bbox, fontsize, color=BRAND_PINK, fontname="helv"):
+def _insert_right_aligned(page, text, bbox, fontsize, color=BRAND_PINK, fontname="helv", fontfile=None, fontbuffer=None):
     if not text:
         return
     rect = fitz.Rect(bbox)
-    tw = fitz.get_text_length(str(text), fontname=fontname, fontsize=fontsize)
+    font_obj = fitz.Font(fontname=None if (fontfile or fontbuffer) else fontname,
+                          fontfile=fontfile, fontbuffer=fontbuffer)
+    tw = font_obj.text_length(str(text), fontsize=fontsize)
     x = rect.x1 - tw
     y = rect.y1 - (rect.height - fontsize) / 2 - 1
     page.insert_text((x, y), str(text), fontsize=fontsize, fontname=fontname, color=color)
 
 
-def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, mapping=None):
+def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, mapping=None,
+                     product_font_bytes=None, price_font_bytes=None):
     """Returns a fitz.Document with the front side filled in.
     Pass `mapping` directly (a dict, same shape as the JSON) to skip
-    reading from disk — used by the in-app live preview/adjustor."""
+    reading from disk — used by the in-app live preview/adjustor.
+    `product_font_bytes` / `price_font_bytes`: raw TTF/OTF bytes to use
+    instead of the default fonts (for live-testing a real Arial /
+    Myriad Pro Semibold font before committing it to fonts/)."""
     if mapping is None:
         mapping = load_mapping(config_path)
     doc = fitz.open(template_path)
@@ -78,16 +84,27 @@ def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, m
         rect = fitz.Rect(pn_cfg["bbox"])
         color = COLOR_MAP.get(pn_cfg.get("color", "black"), BLACK)
         fontname = "helv"
-        if os.path.exists(UNICODE_FONT_PATH):
+        if product_font_bytes:
+            page.insert_font(fontbuffer=product_font_bytes, fontname="product_font")
+            fontname = "product_font"
+        elif os.path.exists(UNICODE_FONT_PATH):
             page.insert_font(fontfile=UNICODE_FONT_PATH, fontname="unicode_font")
             fontname = "unicode_font"
         page.insert_textbox(rect, str(row["product_name"]), fontsize=pn_cfg["fontsize"],
                              fontname=fontname, color=color, align=0)
 
+    price_fontname = "helv"
+    price_fontbuffer = None
+    if price_font_bytes:
+        page.insert_font(fontbuffer=price_font_bytes, fontname="price_font")
+        price_fontname = "price_font"
+        price_fontbuffer = price_font_bytes
+
     for col, field_cfg in mapping.get("prices", {}).items():
         value = row.get(col, "")
         if value:
-            _insert_right_aligned(page, value, field_cfg["bbox"], field_cfg["fontsize"])
+            _insert_right_aligned(page, value, field_cfg["bbox"], field_cfg["fontsize"],
+                                   fontname=price_fontname, fontbuffer=price_fontbuffer)
 
     return doc
 
