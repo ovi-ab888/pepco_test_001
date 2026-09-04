@@ -35,6 +35,7 @@ BRAND_PINK = (236 / 255, 0 / 255, 140 / 255)   # #EC008C - price numbers
 BLACK = (35 / 255, 31 / 255, 32 / 255)         # #231F20 - body text
 
 COLOR_MAP = {"black": BLACK, "pink": BRAND_PINK}
+ALIGN_MAP = {"left": 0, "center": 1, "right": 2, "justify": 3}
 
 
 def load_mapping(config_path=CONFIG_PATH):
@@ -91,7 +92,8 @@ def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, m
             page.insert_font(fontfile=UNICODE_FONT_PATH, fontname="unicode_font")
             fontname = "unicode_font"
         rc = page.insert_textbox(rect, str(row["product_name"]), fontsize=pn_cfg["fontsize"],
-                                  fontname=fontname, color=color, align=0)
+                                  fontname=fontname, color=color,
+                                  align=ALIGN_MAP.get(pn_cfg.get("align", "left"), 0))
         if rc < 0:
             # Negative return = text did NOT fit in the box at this fontsize.
             # PyMuPDF still draws what fits, but if fontsize is too big for
