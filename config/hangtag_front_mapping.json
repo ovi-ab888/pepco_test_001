@@ -3,7 +3,8 @@
     "type": "textbox",
     "bbox": [6.9, 32.5, 124.3, 134.6],
     "fontsize": 4.4,
-    "color": "black"
+    "color": "black",
+    "align": "justify"
   },
   "prices": {
     "EUR": { "bbox": [73.8, 137.6, 111.0, 163.3], "fontsize": 21.0 },
