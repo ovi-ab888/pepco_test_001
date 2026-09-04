@@ -91,19 +91,51 @@ def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, m
         elif os.path.exists(UNICODE_FONT_PATH):
             page.insert_font(fontfile=UNICODE_FONT_PATH, fontname="unicode_font")
             fontname = "unicode_font"
-        rc = page.insert_textbox(rect, str(row["product_name"]), fontsize=pn_cfg["fontsize"],
-                                  fontname=fontname, color=color,
-                                  align=ALIGN_MAP.get(pn_cfg.get("align", "left"), 0))
-        if rc < 0:
-            # Negative return = text did NOT fit in the box at this fontsize.
-            # PyMuPDF still draws what fits, but if fontsize is too big for
-            # the box it can end up drawing ~nothing visible. Surface this.
-            import warnings
-            warnings.warn(
-                f"product_name textbox overflow: {abs(rc):.1f}pt of text didn't fit "
-                f"in the box at fontsize={pn_cfg['fontsize']}. Box too small or "
-                f"fontsize too big — shrink fontsize or enlarge bbox."
-            )
+
+        align = ALIGN_MAP.get(pn_cfg.get("align", "left"), 0)
+        text = str(row["product_name"])
+
+        if pn_cfg.get("auto_fit"):
+            # Auto-shrink fontsize (from max down to min) until the text
+            # just fits the box — matches Illustrator's "fill the box"
+            # look regardless of how long this particular row's text is.
+            max_fs = float(pn_cfg.get("max_fontsize", pn_cfg["fontsize"]))
+            min_fs = float(pn_cfg.get("min_fontsize", 3.0))
+            step = float(pn_cfg.get("fit_step", 0.1))
+            chosen_fs = min_fs
+            fs = max_fs
+            while fs >= min_fs:
+                scratch = fitz.open()
+                scratch_page = scratch.new_page(width=rect.width, height=rect.height)
+                if product_font_bytes:
+                    scratch_page.insert_font(fontbuffer=product_font_bytes, fontname=fontname)
+                elif fontname == "unicode_font":
+                    scratch_page.insert_font(fontfile=UNICODE_FONT_PATH, fontname=fontname)
+                rc_test = scratch_page.insert_textbox(
+                    fitz.Rect(0, 0, rect.width, rect.height), text,
+                    fontsize=fs, fontname=fontname, color=color, align=align,
+                )
+                scratch.close()
+                if rc_test >= 0:
+                    chosen_fs = fs
+                    break
+                fs = round(fs - step, 2)
+            rc = page.insert_textbox(rect, text, fontsize=chosen_fs, fontname=fontname,
+                                      color=color, align=align)
+        else:
+            rc = page.insert_textbox(rect, text, fontsize=pn_cfg["fontsize"], fontname=fontname,
+                                      color=color, align=align)
+            if rc < 0:
+                # Negative return = text did NOT fit in the box at this fontsize.
+                # PyMuPDF still draws what fits, but if fontsize is too big for
+                # the box it can end up drawing ~nothing visible. Surface this.
+                import warnings
+                warnings.warn(
+                    f"product_name textbox overflow: {abs(rc):.1f}pt of text didn't fit "
+                    f"in the box at fontsize={pn_cfg['fontsize']}. Box too small or "
+                    f"fontsize too big — shrink fontsize or enlarge bbox. "
+                    f"(Tip: set \"auto_fit\": true in the config to fix this automatically.)"
+                )
 
     price_fontname = "helv"
     price_fontbuffer = None
