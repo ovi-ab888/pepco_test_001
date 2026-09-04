@@ -127,15 +127,18 @@ with adj_col:
         price_font_bytes = None
 
     st.subheader("Product Name box")
-    pn = mapping.get("product_name", {"bbox": [6.9, 32.5, 124.3, 134.6], "fontsize": 4.4, "color": "black"})
+    pn = mapping.get("product_name", {"bbox": [6.9, 32.5, 124.3, 134.6], "fontsize": 4.4, "color": "black", "align": "justify"})
     pn_x0 = st.number_input("x0", value=float(pn["bbox"][0]), key="pn_x0")
     pn_y0 = st.number_input("y0", value=float(pn["bbox"][1]), key="pn_y0")
     pn_x1 = st.number_input("x1", value=float(pn["bbox"][2]), key="pn_x1")
     pn_y1 = st.number_input("y1", value=float(pn["bbox"][3]), key="pn_y1")
     pn_fs = st.number_input("Font size", value=float(pn["fontsize"]), step=0.1, key="pn_fs")
+    pn_align = st.selectbox("Align", options=["justify", "left", "center", "right"],
+                             index=["justify", "left", "center", "right"].index(pn.get("align", "justify")),
+                             key="pn_align")
 
     mapping["product_name"] = {"bbox": [pn_x0, pn_y0, pn_x1, pn_y1], "fontsize": pn_fs,
-                                "color": pn.get("color", "black")}
+                                "color": pn.get("color", "black"), "align": pn_align}
 
     st.subheader("Price fields")
     price_rows = []
