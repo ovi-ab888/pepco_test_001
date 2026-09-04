@@ -132,13 +132,27 @@ with adj_col:
     pn_y0 = st.number_input("y0", value=float(pn["bbox"][1]), key="pn_y0")
     pn_x1 = st.number_input("x1", value=float(pn["bbox"][2]), key="pn_x1")
     pn_y1 = st.number_input("y1", value=float(pn["bbox"][3]), key="pn_y1")
-    pn_fs = st.number_input("Font size", value=float(pn["fontsize"]), step=0.1, key="pn_fs")
     pn_align = st.selectbox("Align", options=["justify", "left", "center", "right"],
                              index=["justify", "left", "center", "right"].index(pn.get("align", "justify")),
                              key="pn_align")
 
-    mapping["product_name"] = {"bbox": [pn_x0, pn_y0, pn_x1, pn_y1], "fontsize": pn_fs,
-                                "color": pn.get("color", "black"), "align": pn_align}
+    pn_auto_fit = st.checkbox("Auto-fit fontsize (fill the box automatically)",
+                               value=pn.get("auto_fit", True), key="pn_auto_fit")
+
+    if pn_auto_fit:
+        c1, c2, c3 = st.columns(3)
+        pn_max_fs = c1.number_input("Max font size", value=float(pn.get("max_fontsize", 5.5)), step=0.1, key="pn_max_fs")
+        pn_min_fs = c2.number_input("Min font size", value=float(pn.get("min_fontsize", 3.5)), step=0.1, key="pn_min_fs")
+        pn_step = c3.number_input("Fit step", value=float(pn.get("fit_step", 0.1)), step=0.05, key="pn_fit_step")
+        mapping["product_name"] = {
+            "bbox": [pn_x0, pn_y0, pn_x1, pn_y1], "fontsize": pn_max_fs, "color": pn.get("color", "black"),
+            "align": pn_align, "auto_fit": True, "max_fontsize": pn_max_fs,
+            "min_fontsize": pn_min_fs, "fit_step": pn_step,
+        }
+    else:
+        pn_fs = st.number_input("Font size", value=float(pn.get("fontsize", 4.4)), step=0.1, key="pn_fs")
+        mapping["product_name"] = {"bbox": [pn_x0, pn_y0, pn_x1, pn_y1], "fontsize": pn_fs,
+                                    "color": pn.get("color", "black"), "align": pn_align, "auto_fit": False}
 
     st.subheader("Price fields")
     price_rows = []
