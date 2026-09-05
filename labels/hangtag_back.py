@@ -49,12 +49,25 @@ def load_mapping(config_path=CONFIG_PATH):
         return json.load(f)
 
 
-def _insert_left(page, text, bbox, fontsize, color=BLACK, fontname="helv"):
+def _insert_text(page, text, bbox, fontsize, color=BLACK, fontname="helv", align="left",
+                  fontfile=None, fontbuffer=None):
     if not text:
         return
     rect = fitz.Rect(bbox)
+    text = str(text)
+    if fontfile or fontbuffer:
+        font_obj = fitz.Font(fontfile=fontfile, fontbuffer=fontbuffer)
+    else:
+        font_obj = fitz.Font(fontname=fontname)
+    tw = font_obj.text_length(text, fontsize=fontsize)
+    if align == "center":
+        x = rect.x0 + (rect.width - tw) / 2
+    elif align == "right":
+        x = rect.x1 - tw
+    else:
+        x = rect.x0
     y = rect.y1 - (rect.height - fontsize) / 2 - 1
-    page.insert_text((rect.x0, y), str(text), fontsize=fontsize, fontname=fontname, color=color)
+    page.insert_text((x, y), text, fontsize=fontsize, fontname=fontname, color=color)
 
 
 def _draw_ean13(page, code, x0, x1, y_bars_bottom, bars_height, color=BRAND_PINK):
@@ -115,7 +128,10 @@ def fill_back_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, ma
         cfg = mapping.get(field)
         if cfg and row.get(field):
             color = COLOR_MAP.get(cfg.get("color", "black"), BLACK)
-            _insert_left(page, row[field], cfg["bbox"], cfg["fontsize"], color=color, fontname=arial_fontname)
+            _insert_text(page, row[field], cfg["bbox"], cfg["fontsize"], color=color,
+                         fontname=arial_fontname, align=cfg.get("align", "center"),
+                         fontfile=(ARIAL_FONT_PATH if arial_fontname == "arial_font" and not arial_font_bytes else None),
+                         fontbuffer=arial_font_bytes if arial_fontname == "arial_font" else None)
 
     # --- Pictogram fields: washing_code, Cotton ---
     pictogram_fontname = "helv"
@@ -130,7 +146,10 @@ def fill_back_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, ma
         cfg = mapping.get(field)
         if cfg and row.get(field):
             color = COLOR_MAP.get(cfg.get("color", "pink"), BRAND_PINK)
-            _insert_left(page, row[field], cfg["bbox"], cfg["fontsize"], color=color, fontname=pictogram_fontname)
+            _insert_text(page, row[field], cfg["bbox"], cfg["fontsize"], color=color,
+                         fontname=pictogram_fontname, align=cfg.get("align", "left"),
+                         fontfile=(PICTOGRAM_FONT_PATH if pictogram_fontname == "pictogram_font" and not pictogram_font_bytes else None),
+                         fontbuffer=pictogram_font_bytes if pictogram_fontname == "pictogram_font" else None)
 
     # --- Barcode (EAN13 vector bars + human-readable digits) ---
     bc_cfg = mapping.get("barcode")
