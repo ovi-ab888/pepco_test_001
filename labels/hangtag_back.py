@@ -21,6 +21,12 @@ import fitz  # PyMuPDF
 import json
 import os
 
+# Disable anti-aliasing for rasterization (get_pixmap previews). This has
+# ZERO effect on the actual vector PDF output (which was always correct) —
+# it only fixes preview PNGs so a barcode scanner can read them too, by
+# avoiding the sub-pixel edge blur that antialiasing introduces.
+fitz.TOOLS.set_aa_level(0)
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Hangtag", "back_side.pdf")
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "hangtag_back_mapping.json")
@@ -76,7 +82,10 @@ def _draw_ean13(page, code, x0, x1, y_bars_bottom, bars_height, color=BRAND_PINK
         '0': '0001101', '1': '0011001', '2': '0010011', '3': '0111101', '4': '0100011',
         '5': '0110001', '6': '0101111', '7': '0111011', '8': '0110111', '9': '0001011',
     }
-    G_CODES = {k: v[::-1] for k, v in L_CODES.items()}
+    G_CODES = {
+        '0': '0100111', '1': '0110011', '2': '0011011', '3': '0100001', '4': '0011101',
+        '5': '0111001', '6': '0000101', '7': '0010001', '8': '0001001', '9': '0010111',
+    }
     R_CODES = {k: ''.join('1' if c == '0' else '0' for c in v) for k, v in L_CODES.items()}
     PARITY = {
         '0': 'LLLLLL', '1': 'LLGLGG', '2': 'LLGGLG', '3': 'LLGGGL', '4': 'LGLLGG',
@@ -97,14 +106,14 @@ def _draw_ean13(page, code, x0, x1, y_bars_bottom, bars_height, color=BRAND_PINK
 
     total_width = x1 - x0
     module_w = total_width / len(bits)
-    x = x0
     for i, bit in enumerate(bits):
         is_guard = i < 3 or (45 <= i < 50) or i >= len(bits) - 3
         h = bars_height * (1.15 if is_guard else 1.0)
         if bit == "1":
-            page.draw_rect(fitz.Rect(x, y_bars_bottom - h, x + module_w, y_bars_bottom),
+            bar_x0 = x0 + i * module_w
+            bar_x1 = x0 + (i + 1) * module_w
+            page.draw_rect(fitz.Rect(bar_x0, y_bars_bottom - h, bar_x1, y_bars_bottom),
                             color=color, fill=color, width=0)
-        x += module_w
 
 
 def fill_back_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, mapping=None,
