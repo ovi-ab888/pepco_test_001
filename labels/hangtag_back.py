@@ -1,0 +1,186 @@
+"""
+hangtag_back.py
+================
+PEPCO Hangtag — BACK SIDE only.
+
+Position/font config lives in config/hangtag_back_mapping.json — same
+pattern as hangtag_front.py / pad_header_mapping.json.
+
+Repo structure needed:
+    labels/hangtag_back.py   (this file)
+    config/hangtag_back_mapping.json
+    fonts/ArialRegular.ttf
+    fonts/PEPCO_Ovi.ttf        (pictogram font — washing_code + Cotton)
+    templates/Hangtag/back_side.pdf   <- your cleaned template
+
+Coordinates are in PDF points, TOP-LEFT origin (PyMuPDF convention).
+Page size: 130.89 x 326.48 pt (46.2mm x 115.2mm) — same as front side.
+"""
+
+import fitz  # PyMuPDF
+import json
+import os
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root
+TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Hangtag", "back_side.pdf")
+CONFIG_PATH = os.path.join(BASE_DIR, "config", "hangtag_back_mapping.json")
+ARIAL_FONT_PATH = os.path.join(BASE_DIR, "fonts", "ArialRegular.ttf")
+PICTOGRAM_FONT_PATH = os.path.join(BASE_DIR, "fonts", "PEPCO_Ovi.ttf")
+
+BRAND_PINK = (236 / 255, 0 / 255, 140 / 255)   # #EC008C
+BLACK = (35 / 255, 31 / 255, 32 / 255)         # #231F20
+
+COLOR_MAP = {"black": BLACK, "pink": BRAND_PINK}
+
+# --- Sample data to preview with ---
+SAMPLE_ROW = {
+    "Collection": "MODERN 1",
+    "Colour_SKU": "BLACK • SKU 12345678",
+    "Style_Merch_Season": "STYLE 123456 • ABC12027 • Batch No./",
+    "Batch": "виготовлення: 072026",
+    "washing_code": "gjnqt",
+    "Cotton": "Z",
+    "barcode": "2200164366761",
+}
+
+
+def load_mapping(config_path=CONFIG_PATH):
+    with open(config_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _insert_left(page, text, bbox, fontsize, color=BLACK, fontname="helv"):
+    if not text:
+        return
+    rect = fitz.Rect(bbox)
+    y = rect.y1 - (rect.height - fontsize) / 2 - 1
+    page.insert_text((rect.x0, y), str(text), fontsize=fontsize, fontname=fontname, color=color)
+
+
+def _draw_ean13(page, code, x0, x1, y_bars_bottom, bars_height, color=BRAND_PINK):
+    """Self-contained standard EAN13 vector bar renderer (guard/L/G/R pattern)."""
+    L_CODES = {
+        '0': '0001101', '1': '0011001', '2': '0010011', '3': '0111101', '4': '0100011',
+        '5': '0110001', '6': '0101111', '7': '0111011', '8': '0110111', '9': '0001011',
+    }
+    G_CODES = {k: v[::-1] for k, v in L_CODES.items()}
+    R_CODES = {k: ''.join('1' if c == '0' else '0' for c in v) for k, v in L_CODES.items()}
+    PARITY = {
+        '0': 'LLLLLL', '1': 'LLGLGG', '2': 'LLGGLG', '3': 'LLGGGL', '4': 'LGLLGG',
+        '5': 'LGGLLG', '6': 'LGGGLL', '7': 'LGLGLG', '8': 'LGLGGL', '9': 'LGGLGL',
+    }
+    code = str(code).zfill(13)
+    first, rest = code[0], code[1:]
+    left, right = rest[:6], rest[6:]
+    parity = PARITY[first]
+
+    bits = "101"
+    for i, d in enumerate(left):
+        bits += L_CODES[d] if parity[i] == 'L' else G_CODES[d]
+    bits += "01010"
+    for d in right:
+        bits += R_CODES[d]
+    bits += "101"
+
+    total_width = x1 - x0
+    module_w = total_width / len(bits)
+    x = x0
+    for i, bit in enumerate(bits):
+        is_guard = i < 3 or (45 <= i < 50) or i >= len(bits) - 3
+        h = bars_height * (1.15 if is_guard else 1.0)
+        if bit == "1":
+            page.draw_rect(fitz.Rect(x, y_bars_bottom - h, x + module_w, y_bars_bottom),
+                            color=color, fill=color, width=0)
+        x += module_w
+
+
+def fill_back_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, mapping=None,
+                    arial_font_bytes=None, pictogram_font_bytes=None):
+    """Returns a fitz.Document with the back side filled in."""
+    if mapping is None:
+        mapping = load_mapping(config_path)
+    doc = fitz.open(template_path)
+    page = doc[0]
+
+    # --- Arial text fields: Collection, Colour_SKU, Style_Merch_Season, Batch ---
+    arial_fontname = "helv"
+    if arial_font_bytes:
+        page.insert_font(fontbuffer=arial_font_bytes, fontname="arial_font")
+        arial_fontname = "arial_font"
+    elif os.path.exists(ARIAL_FONT_PATH):
+        page.insert_font(fontfile=ARIAL_FONT_PATH, fontname="arial_font")
+        arial_fontname = "arial_font"
+
+    for field in ["Collection", "Colour_SKU", "Style_Merch_Season", "Batch"]:
+        cfg = mapping.get(field)
+        if cfg and row.get(field):
+            color = COLOR_MAP.get(cfg.get("color", "black"), BLACK)
+            _insert_left(page, row[field], cfg["bbox"], cfg["fontsize"], color=color, fontname=arial_fontname)
+
+    # --- Pictogram fields: washing_code, Cotton ---
+    pictogram_fontname = "helv"
+    if pictogram_font_bytes:
+        page.insert_font(fontbuffer=pictogram_font_bytes, fontname="pictogram_font")
+        pictogram_fontname = "pictogram_font"
+    elif os.path.exists(PICTOGRAM_FONT_PATH):
+        page.insert_font(fontfile=PICTOGRAM_FONT_PATH, fontname="pictogram_font")
+        pictogram_fontname = "pictogram_font"
+
+    for field in ["washing_code", "Cotton"]:
+        cfg = mapping.get(field)
+        if cfg and row.get(field):
+            color = COLOR_MAP.get(cfg.get("color", "pink"), BRAND_PINK)
+            _insert_left(page, row[field], cfg["bbox"], cfg["fontsize"], color=color, fontname=pictogram_fontname)
+
+    # --- Barcode (EAN13 vector bars + human-readable digits) ---
+    bc_cfg = mapping.get("barcode")
+    barcode = row.get("barcode", "")
+    if bc_cfg and barcode:
+        color = COLOR_MAP.get(bc_cfg.get("color", "pink"), BRAND_PINK)
+        _draw_ean13(page, barcode, bc_cfg["x0"], bc_cfg["x1"],
+                    bc_cfg["digits_y0"] - 2, bc_cfg["bars_height"], color=color)
+        digits_display = " ".join([barcode[0], barcode[1:7], barcode[7:]]) if len(barcode) == 13 else barcode
+        rect = fitz.Rect(bc_cfg["x0"], bc_cfg["digits_y0"], bc_cfg["x1"], bc_cfg["digits_y1"])
+        tw = fitz.get_text_length(digits_display, fontname="helv", fontsize=bc_cfg["digits_fontsize"])
+        x = rect.x0 + (rect.width - tw) / 2
+        y = rect.y1 - (rect.height - bc_cfg["digits_fontsize"]) / 2 - 1
+        page.insert_text((x, y), digits_display, fontsize=bc_cfg["digits_fontsize"], fontname="helv", color=color)
+
+    return doc
+
+
+def generate_single(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH):
+    doc = fill_back_side(row, template_path, config_path)
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
+def generate_batch(rows, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH):
+    return [generate_single(row, template_path, config_path) for row in rows]
+
+
+def generate_batch_pdf(rows, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH):
+    """Returns ONE multi-page PDF (bytes), one page per row."""
+    out = fitz.open()
+    for row in rows:
+        doc = fill_back_side(row, template_path, config_path)
+        out.insert_pdf(doc)
+        doc.close()
+    data = out.tobytes()
+    out.close()
+    return data
+
+
+if __name__ == "__main__":
+    if not os.path.exists(TEMPLATE_PATH):
+        print(f"❌ Template not found at: {TEMPLATE_PATH}")
+    elif not os.path.exists(CONFIG_PATH):
+        print(f"❌ Config not found at: {CONFIG_PATH}")
+    else:
+        doc = fill_back_side(SAMPLE_ROW)
+        doc.save("preview_back.pdf")
+        pix = doc[0].get_pixmap(dpi=200)
+        pix.save("preview_back.png")
+        doc.close()
+        print("✅ Done — check preview_back.png (or preview_back.pdf)")
