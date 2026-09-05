@@ -175,12 +175,32 @@ def fill_back_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, ma
         color = COLOR_MAP.get(bc_cfg.get("color", "pink"), BRAND_PINK)
         _draw_ean13(page, barcode, bc_cfg["x0"], bc_cfg["x1"],
                     bc_cfg["digits_y0"] - 2, bc_cfg["bars_height"], color=color)
-        digits_display = " ".join([barcode[0], barcode[1:7], barcode[7:]]) if len(barcode) == 13 else barcode
-        rect = fitz.Rect(bc_cfg["x0"], bc_cfg["digits_y0"], bc_cfg["x1"], bc_cfg["digits_y1"])
-        tw = fitz.get_text_length(digits_display, fontname="helv", fontsize=bc_cfg["digits_fontsize"])
-        x = rect.x0 + (rect.width - tw) / 2
-        y = rect.y1 - (rect.height - bc_cfg["digits_fontsize"]) / 2 - 1
-        page.insert_text((x, y), digits_display, fontsize=bc_cfg["digits_fontsize"], fontname="helv", color=color)
+
+        fs = bc_cfg["digits_fontsize"]
+        y = bc_cfg["digits_y1"] - (bc_cfg["digits_y1"] - bc_cfg["digits_y0"] - fs) / 2 - 1
+
+        if len(barcode) == 13:
+            # Authentic EAN13 digit layout: 1st digit sits to the LEFT of
+            # the bars (outside), then the two 6-digit groups sit centered
+            # under the left half and right half of the bars respectively —
+            # not one single centered string (which looks cramped/wrong).
+            first_digit, left_group, right_group = barcode[0], barcode[1:7], barcode[7:]
+            bars_mid = (bc_cfg["x0"] + bc_cfg["x1"]) / 2
+
+            fd_w = fitz.get_text_length(first_digit, fontname="helv", fontsize=fs)
+            page.insert_text((bc_cfg["x0"] - fd_w - 2, y), first_digit, fontsize=fs, fontname="helv", color=color)
+
+            lg_w = fitz.get_text_length(left_group, fontname="helv", fontsize=fs)
+            lg_x = bc_cfg["x0"] + (bars_mid - bc_cfg["x0"] - lg_w) / 2
+            page.insert_text((lg_x, y), left_group, fontsize=fs, fontname="helv", color=color)
+
+            rg_w = fitz.get_text_length(right_group, fontname="helv", fontsize=fs)
+            rg_x = bars_mid + (bc_cfg["x1"] - bars_mid - rg_w) / 2
+            page.insert_text((rg_x, y), right_group, fontsize=fs, fontname="helv", color=color)
+        else:
+            tw = fitz.get_text_length(barcode, fontname="helv", fontsize=fs)
+            x = bc_cfg["x0"] + ((bc_cfg["x1"] - bc_cfg["x0"]) - tw) / 2
+            page.insert_text((x, y), barcode, fontsize=fs, fontname="helv", color=color)
 
     return doc
 
