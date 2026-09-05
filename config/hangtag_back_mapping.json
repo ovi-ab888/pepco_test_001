@@ -1,36 +1,70 @@
 {
   "Collection": {
-    "bbox": [50.6, 214.3, 90.3, 220.3],
+    "bbox": [
+      50.6,
+      214.3,
+      90.3,
+      220.3
+    ],
     "fontsize": 4.5,
     "font": "arial",
-    "color": "black"
+    "color": "black",
+    "align": "center"
   },
   "Colour_SKU": {
-    "bbox": [49.4, 222.5, 91.6, 228.5],
+    "bbox": [
+      49.4,
+      222.5,
+      91.6,
+      228.5
+    ],
     "fontsize": 4.5,
     "font": "arial",
-    "color": "black"
+    "color": "black",
+    "align": "center"
   },
   "Style_Merch_Season": {
-    "bbox": [43.0, 228.5, 98.0, 234.5],
+    "bbox": [
+      43.0,
+      228.5,
+      98.0,
+      234.5
+    ],
     "fontsize": 4.5,
     "font": "arial",
-    "color": "black"
+    "color": "black",
+    "align": "center"
   },
   "Batch": {
-    "bbox": [59.4, 240.6, 90.3, 246.6],
+    "bbox": [
+      59.4,
+      240.6,
+      90.3,
+      246.6
+    ],
     "fontsize": 4.5,
     "font": "arial",
-    "color": "black"
+    "color": "black",
+    "align": "center"
   },
   "washing_code": {
-    "bbox": [30.9, 32.5, 100.0, 44.0],
+    "bbox": [
+      30.9,
+      32.5,
+      100.0,
+      44.0
+    ],
     "fontsize": 6.0,
     "font": "pictogram",
     "color": "pink"
   },
   "Cotton": {
-    "bbox": [96.5, 6.0, 119.1, 28.9],
+    "bbox": [
+      96.5,
+      6.0,
+      119.1,
+      28.9
+    ],
     "fontsize": 6.0,
     "font": "pictogram",
     "color": "pink"
