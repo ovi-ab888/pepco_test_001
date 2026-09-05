@@ -93,11 +93,18 @@ with col2:
 st.header("4. 🎯 Live Preview & Position/Font Adjustor")
 st.caption("Ekhane change korle sathe sathe preview update hobe. Thik hoye gele niche theke JSON download kore GitHub-e config/hangtag_front_mapping.json replace koro.")
 
-if "mapping" not in st.session_state:
+if "mapping" not in st.session_state or "auto_fit" not in st.session_state.mapping.get("product_name", {}):
+    # Force a fresh reload if session_state has a stale mapping from before
+    # the auto_fit/align features existed (old cached session data).
     try:
         st.session_state.mapping = hf.load_mapping()
     except Exception:
-        st.session_state.mapping = {"product_name": {"bbox": [6.9, 32.5, 124.3, 134.6], "fontsize": 4.4, "color": "black"}, "prices": {}}
+        st.session_state.mapping = {
+            "product_name": {"bbox": [6.9, 32.5, 124.3, 134.6], "fontsize": 4.4, "color": "black",
+                              "align": "justify", "auto_fit": True, "max_fontsize": 5.5,
+                              "min_fontsize": 3.5, "fit_step": 0.1},
+            "prices": {},
+        }
 
 mapping = st.session_state.mapping
 
