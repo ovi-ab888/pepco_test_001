@@ -66,12 +66,12 @@
     "color": "pink"
   },
   "barcode": {
-    "x0": 21.2,
-    "x1": 101.2,
-    "digits_y0": 274.5,
-    "digits_y1": 285.0,
-    "bars_height": 20.0,
-    "digits_fontsize": 5.0,
+    "x0": 22.0,
+    "x1": 100.0,
+    "digits_y0": 278.0,
+    "digits_y1": 278.0,
+    "bars_height": 23.0,
+    "digits_fontsize": 9.0,
     "color": "pink"
   }
 }
