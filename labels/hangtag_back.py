@@ -106,13 +106,19 @@ def _draw_ean13(page, code, x0, x1, y_bars_bottom, bars_height, color=BRAND_PINK
 
     total_width = x1 - x0
     module_w = total_width / len(bits)
+    # All bars share the same TOP edge (standard barcode look). Guard bars
+    # (start/middle/end) extend further DOWN toward the digit line; regular
+    # data bars are shorter and stop above that — NOT the other way round
+    # (extending upward), which is what made it look "flipped/rotated".
+    y_top = y_bars_bottom - bars_height
+    short_height = bars_height / 1.15
     for i, bit in enumerate(bits):
         is_guard = i < 3 or (45 <= i < 50) or i >= len(bits) - 3
-        h = bars_height * (1.15 if is_guard else 1.0)
+        y_bottom_this_bar = y_top + (bars_height if is_guard else short_height)
         if bit == "1":
             bar_x0 = x0 + i * module_w
             bar_x1 = x0 + (i + 1) * module_w
-            page.draw_rect(fitz.Rect(bar_x0, y_bars_bottom - h, bar_x1, y_bars_bottom),
+            page.draw_rect(fitz.Rect(bar_x0, y_top, bar_x1, y_bottom_this_bar),
                             color=color, fill=color, width=0)
 
 
