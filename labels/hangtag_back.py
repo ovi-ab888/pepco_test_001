@@ -134,8 +134,10 @@ def fill_back_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, ma
 
     # --- Barcode (EAN13 vector bars + human-readable digits) ---
     bc_cfg = mapping.get("barcode")
-    barcode = row.get("barcode", "")
-    if bc_cfg and barcode:
+    barcode = str(row.get("barcode", "")).strip()
+    if barcode.endswith(".0"):
+        barcode = barcode[:-2]
+    if bc_cfg and barcode and barcode.lower() != "nan":
         color = COLOR_MAP.get(bc_cfg.get("color", "pink"), BRAND_PINK)
         _draw_ean13(page, barcode, bc_cfg["x0"], bc_cfg["x1"],
                     bc_cfg["digits_y0"] - 2, bc_cfg["bars_height"], color=color)
