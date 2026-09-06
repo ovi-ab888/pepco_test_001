@@ -55,6 +55,86 @@ SAMPLE_ROW = {
 }
 
 
+def _wrap_and_justify_textbox(page, rect, text, fontsize, fontname, color, align="justify",
+                               fontfile=None, fontbuffer=None, lineheight=1.15):
+    """
+    Custom paragraph renderer that properly justifies text with an
+    EMBEDDED/custom font. PyMuPDF's own page.insert_textbox(..., align=3)
+    only computes correct justify spacing for the base-14 fonts (e.g.
+    "helv") — with a custom TTF/OTF loaded via insert_font, it silently
+    falls back to left-aligned-looking output (ragged right edge). This
+    function does word-wrap + justify manually using real glyph widths
+    from a fitz.Font object, so it works correctly with ANY font.
+
+    Returns the same kind of signal as insert_textbox: a non-negative
+    number if the text fit, negative (unused space made negative) is not
+    computed precisely — instead returns True/False fits-in-box.
+    """
+    font_obj = fitz.Font(fontfile=fontfile, fontbuffer=fontbuffer) if (fontfile or fontbuffer) \
+        else fitz.Font(fontname=fontname)
+
+    # Make sure this page can actually render `fontname` — insert_text
+    # requires the font to be registered on THIS specific page first.
+    if fontfile or fontbuffer:
+        page.insert_font(fontname=fontname, fontfile=fontfile, fontbuffer=fontbuffer)
+
+    space_w = font_obj.text_length(" ", fontsize=fontsize)
+    words = text.split()
+    box_width = rect.width
+    line_gap = fontsize * lineheight
+
+    lines = []  # list of list-of-words
+    current = []
+    current_w = 0.0
+    for word in words:
+        w = font_obj.text_length(word, fontsize=fontsize)
+        added_w = w if not current else w + space_w
+        if current and current_w + added_w > box_width:
+            lines.append(current)
+            current = [word]
+            current_w = w
+        else:
+            current.append(word)
+            current_w += added_w
+    if current:
+        lines.append(current)
+
+    total_height_needed = len(lines) * line_gap
+    fits = total_height_needed <= rect.height + 0.01
+
+    y = rect.y0 + fontsize  # baseline of first line
+    for i, line_words in enumerate(lines):
+        is_last = (i == len(lines) - 1)
+        words_width = sum(font_obj.text_length(w, fontsize=fontsize) for w in line_words)
+        n_gaps = len(line_words) - 1
+
+        if align == "justify" and not is_last and n_gaps > 0:
+            gap_w = (box_width - words_width) / n_gaps
+        elif align == "center":
+            gap_w = space_w
+        elif align == "right":
+            gap_w = space_w
+        else:
+            gap_w = space_w
+
+        line_natural_width = words_width + gap_w * n_gaps
+        if align == "center" and (align != "justify" or is_last):
+            x = rect.x0 + (box_width - line_natural_width) / 2
+        elif align == "right" and (align != "justify" or is_last):
+            x = rect.x0 + (box_width - line_natural_width)
+        else:
+            x = rect.x0
+
+        for j, word in enumerate(line_words):
+            page.insert_text((x, y), word, fontsize=fontsize, fontname=fontname, color=color)
+            w = font_obj.text_length(word, fontsize=fontsize)
+            x += w + gap_w
+
+        y += line_gap
+
+    return fits
+
+
 def _insert_right_aligned(page, text, bbox, fontsize, color=BRAND_PINK, fontname="helv", fontfile=None, fontbuffer=None):
     if not text:
         return
@@ -92,8 +172,10 @@ def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, m
             page.insert_font(fontfile=UNICODE_FONT_PATH, fontname="unicode_font")
             fontname = "unicode_font"
 
-        align = ALIGN_MAP.get(pn_cfg.get("align", "left"), 0)
+        align_str = pn_cfg.get("align", "left")
         text = str(row["product_name"])
+        fontfile_arg = None if (product_font_bytes or fontname != "unicode_font") else UNICODE_FONT_PATH
+        fontbuffer_arg = product_font_bytes
 
         if pn_cfg.get("auto_fit"):
             # Auto-shrink fontsize (from max down to min) until the text
@@ -107,33 +189,27 @@ def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, m
             while fs >= min_fs:
                 scratch = fitz.open()
                 scratch_page = scratch.new_page(width=rect.width, height=rect.height)
-                if product_font_bytes:
-                    scratch_page.insert_font(fontbuffer=product_font_bytes, fontname=fontname)
-                elif fontname == "unicode_font":
-                    scratch_page.insert_font(fontfile=UNICODE_FONT_PATH, fontname=fontname)
-                rc_test = scratch_page.insert_textbox(
-                    fitz.Rect(0, 0, rect.width, rect.height), text,
-                    fontsize=fs, fontname=fontname, color=color, align=align,
+                fits = _wrap_and_justify_textbox(
+                    scratch_page, fitz.Rect(0, 0, rect.width, rect.height), text, fs,
+                    fontname, color, align=align_str, fontfile=fontfile_arg, fontbuffer=fontbuffer_arg,
                 )
                 scratch.close()
-                if rc_test >= 0:
+                if fits:
                     chosen_fs = fs
                     break
                 fs = round(fs - step, 2)
-            rc = page.insert_textbox(rect, text, fontsize=chosen_fs, fontname=fontname,
-                                      color=color, align=align)
+            _wrap_and_justify_textbox(page, rect, text, chosen_fs, fontname, color, align=align_str,
+                                       fontfile=fontfile_arg, fontbuffer=fontbuffer_arg)
         else:
-            rc = page.insert_textbox(rect, text, fontsize=pn_cfg["fontsize"], fontname=fontname,
-                                      color=color, align=align)
-            if rc < 0:
-                # Negative return = text did NOT fit in the box at this fontsize.
-                # PyMuPDF still draws what fits, but if fontsize is too big for
-                # the box it can end up drawing ~nothing visible. Surface this.
+            fits = _wrap_and_justify_textbox(page, rect, text, pn_cfg["fontsize"], fontname, color,
+                                              align=align_str, fontfile=fontfile_arg, fontbuffer=fontbuffer_arg)
+            if not fits:
+                # Text did NOT fit in the box at this fontsize (would overflow
+                # vertically). Surface this instead of silently overflowing.
                 import warnings
                 warnings.warn(
-                    f"product_name textbox overflow: {abs(rc):.1f}pt of text didn't fit "
-                    f"in the box at fontsize={pn_cfg['fontsize']}. Box too small or "
-                    f"fontsize too big — shrink fontsize or enlarge bbox. "
+                    f"product_name textbox overflow at fontsize={pn_cfg['fontsize']}. "
+                    f"Box too small or fontsize too big — shrink fontsize or enlarge bbox. "
                     f"(Tip: set \"auto_fit\": true in the config to fix this automatically.)"
                 )
 
