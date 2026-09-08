@@ -30,6 +30,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo r
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Hangtag", "front_side.pdf")
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "hangtag_front_mapping.json")
 UNICODE_FONT_PATH = os.path.join(BASE_DIR, "fonts", "DejaVuSans.ttf")
+BOLD_FONT_PATH = os.path.join(BASE_DIR, "fonts", "ArialBold.ttf")
 
 BRAND_PINK = (236 / 255, 0 / 255, 140 / 255)   # #EC008C - price numbers
 BLACK = (35 / 255, 31 / 255, 32 / 255)         # #231F20 - body text
@@ -55,8 +56,14 @@ SAMPLE_ROW = {
 }
 
 
+import re
+
+_COUNTRY_CODE_RE = re.compile(r"^\|[A-Za-z]{2,4}\|$")
+
+
 def _wrap_and_justify_textbox(page, rect, text, fontsize, fontname, color, align="justify",
-                               fontfile=None, fontbuffer=None, lineheight=1.15):
+                               fontfile=None, fontbuffer=None, lineheight=1.15,
+                               bold_fontname=None, bold_fontfile=None, bold_fontbuffer=None):
     """
     Custom paragraph renderer that properly justifies text with an
     EMBEDDED/custom font. PyMuPDF's own page.insert_textbox(..., align=3)
@@ -66,17 +73,33 @@ def _wrap_and_justify_textbox(page, rect, text, fontsize, fontname, color, align
     function does word-wrap + justify manually using real glyph widths
     from a fitz.Font object, so it works correctly with ANY font.
 
-    Returns the same kind of signal as insert_textbox: a non-negative
-    number if the text fit, negative (unused space made negative) is not
-    computed precisely — instead returns True/False fits-in-box.
+    Tokens that look like a language/country code — "|EN|", "|BiH|",
+    "|UA|" etc. (pipe, 2-4 letters, pipe) — are rendered in `bold_fontname`
+    instead of the regular font, matching the reference design where each
+    language tag is bold and the translation text after it is regular.
+
+    Returns True if the text fit within rect.height at this fontsize.
     """
     font_obj = fitz.Font(fontfile=fontfile, fontbuffer=fontbuffer) if (fontfile or fontbuffer) \
         else fitz.Font(fontname=fontname)
 
-    # Make sure this page can actually render `fontname` — insert_text
-    # requires the font to be registered on THIS specific page first.
+    use_bold = bool(bold_fontname and (bold_fontfile or bold_fontbuffer))
+    bold_font_obj = None
+    if use_bold:
+        bold_font_obj = fitz.Font(fontfile=bold_fontfile, fontbuffer=bold_fontbuffer)
+
+    # Make sure this page can actually render these fonts — insert_text
+    # requires each font to be registered on THIS specific page first.
     if fontfile or fontbuffer:
         page.insert_font(fontname=fontname, fontfile=fontfile, fontbuffer=fontbuffer)
+    if use_bold:
+        page.insert_font(fontname=bold_fontname, fontfile=bold_fontfile, fontbuffer=bold_fontbuffer)
+
+    def _word_font(word):
+        return bold_font_obj if (use_bold and _COUNTRY_CODE_RE.match(word)) else font_obj
+
+    def _word_fontname(word):
+        return bold_fontname if (use_bold and _COUNTRY_CODE_RE.match(word)) else fontname
 
     space_w = font_obj.text_length(" ", fontsize=fontsize)
     words = text.split()
@@ -87,7 +110,7 @@ def _wrap_and_justify_textbox(page, rect, text, fontsize, fontname, color, align
     current = []
     current_w = 0.0
     for word in words:
-        w = font_obj.text_length(word, fontsize=fontsize)
+        w = _word_font(word).text_length(word, fontsize=fontsize)
         added_w = w if not current else w + space_w
         if current and current_w + added_w > box_width:
             lines.append(current)
@@ -105,15 +128,11 @@ def _wrap_and_justify_textbox(page, rect, text, fontsize, fontname, color, align
     y = rect.y0 + fontsize  # baseline of first line
     for i, line_words in enumerate(lines):
         is_last = (i == len(lines) - 1)
-        words_width = sum(font_obj.text_length(w, fontsize=fontsize) for w in line_words)
+        words_width = sum(_word_font(w).text_length(w, fontsize=fontsize) for w in line_words)
         n_gaps = len(line_words) - 1
 
         if align == "justify" and not is_last and n_gaps > 0:
             gap_w = (box_width - words_width) / n_gaps
-        elif align == "center":
-            gap_w = space_w
-        elif align == "right":
-            gap_w = space_w
         else:
             gap_w = space_w
 
@@ -126,8 +145,8 @@ def _wrap_and_justify_textbox(page, rect, text, fontsize, fontname, color, align
             x = rect.x0
 
         for j, word in enumerate(line_words):
-            page.insert_text((x, y), word, fontsize=fontsize, fontname=fontname, color=color)
-            w = font_obj.text_length(word, fontsize=fontsize)
+            page.insert_text((x, y), word, fontsize=fontsize, fontname=_word_fontname(word), color=color)
+            w = _word_font(word).text_length(word, fontsize=fontsize)
             x += w + gap_w
 
         y += line_gap
@@ -148,7 +167,7 @@ def _insert_right_aligned(page, text, bbox, fontsize, color=BRAND_PINK, fontname
 
 
 def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, mapping=None,
-                     product_font_bytes=None, price_font_bytes=None):
+                     product_font_bytes=None, price_font_bytes=None, product_bold_font_bytes=None):
     """Returns a fitz.Document with the front side filled in.
     Pass `mapping` directly (a dict, same shape as the JSON) to skip
     reading from disk — used by the in-app live preview/adjustor.
@@ -177,6 +196,12 @@ def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, m
         fontfile_arg = None if (product_font_bytes or fontname != "unicode_font") else UNICODE_FONT_PATH
         fontbuffer_arg = product_font_bytes
 
+        bold_fontname = "product_font_bold"
+        bold_fontfile_arg = None if product_bold_font_bytes else (BOLD_FONT_PATH if os.path.exists(BOLD_FONT_PATH) else None)
+        bold_fontbuffer_arg = product_bold_font_bytes
+        if not (bold_fontfile_arg or bold_fontbuffer_arg):
+            bold_fontname = None  # no bold font available — country codes render regular
+
         if pn_cfg.get("auto_fit"):
             # Auto-shrink fontsize (from max down to min) until the text
             # just fits the box — matches Illustrator's "fill the box"
@@ -192,6 +217,7 @@ def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, m
                 fits = _wrap_and_justify_textbox(
                     scratch_page, fitz.Rect(0, 0, rect.width, rect.height), text, fs,
                     fontname, color, align=align_str, fontfile=fontfile_arg, fontbuffer=fontbuffer_arg,
+                    bold_fontname=bold_fontname, bold_fontfile=bold_fontfile_arg, bold_fontbuffer=bold_fontbuffer_arg,
                 )
                 scratch.close()
                 if fits:
@@ -199,13 +225,18 @@ def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, m
                     break
                 fs = round(fs - step, 2)
             _wrap_and_justify_textbox(page, rect, text, chosen_fs, fontname, color, align=align_str,
-                                       fontfile=fontfile_arg, fontbuffer=fontbuffer_arg)
+                                       fontfile=fontfile_arg, fontbuffer=fontbuffer_arg,
+                                       bold_fontname=bold_fontname, bold_fontfile=bold_fontfile_arg,
+                                       bold_fontbuffer=bold_fontbuffer_arg)
         else:
             fits = _wrap_and_justify_textbox(page, rect, text, pn_cfg["fontsize"], fontname, color,
-                                              align=align_str, fontfile=fontfile_arg, fontbuffer=fontbuffer_arg)
+                                              align=align_str, fontfile=fontfile_arg, fontbuffer=fontbuffer_arg,
+                                              bold_fontname=bold_fontname, bold_fontfile=bold_fontfile_arg,
+                                              bold_fontbuffer=bold_fontbuffer_arg)
             if not fits:
                 # Text did NOT fit in the box at this fontsize (would overflow
                 # vertically). Surface this instead of silently overflowing.
+
                 import warnings
                 warnings.warn(
                     f"product_name textbox overflow at fontsize={pn_cfg['fontsize']}. "
