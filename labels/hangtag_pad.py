@@ -63,19 +63,16 @@ def fill_pad_header(page, row, mapping):
         page.insert_text((x, y), text, fontsize=fs, fontname="helv", color=BLACK)
 
 
-def generate_pad(row, front_bytes=None, back_bytes=None, template_path=TEMPLATE_PATH,
-                  config_path=CONFIG_PATH, mapping=None):
+def generate_pad_repeat_back(row, front_bytes=None, back_bytes=None, template_path=TEMPLATE_PATH,
+                              config_path=CONFIG_PATH, mapping=None):
     """
-    Build one Pad PDF (bytes) for a single row: 1x Front + 7x Back
-    composited at the fixed slot rectangles, with the header filled in.
-
-    If front_bytes / back_bytes are not supplied, they are generated from
-    `row` using hangtag_front.generate_single / hangtag_back.generate_single
-    (with each module's own default template/config/fonts).
+    Old behaviour: 1 Front + the SAME Back repeated 7 times. Kept for
+    cases where you genuinely want 7 identical copies of one unit. For
+    real order data (multiple units/barcodes sharing one style+price),
+    use generate_pad_for_group() / generate_batch() instead.
     """
     if mapping is None:
         mapping = load_mapping(config_path)
-
     if front_bytes is None:
         front_bytes = hf.generate_single(row)
     if back_bytes is None:
@@ -83,7 +80,6 @@ def generate_pad(row, front_bytes=None, back_bytes=None, template_path=TEMPLATE_
 
     pad_doc = fitz.open(template_path)
     pad_page = pad_doc[0]
-
     fill_pad_header(pad_page, row, mapping)
 
     front_src = fitz.open("pdf", front_bytes)
@@ -100,18 +96,98 @@ def generate_pad(row, front_bytes=None, back_bytes=None, template_path=TEMPLATE_
     return data
 
 
+# Backward-compat alias (old name).
+generate_pad = generate_pad_repeat_back
+
+
+_FRONT_KEY_COLUMNS = ["product_name", "EUR", "BAM", "PLN", "RON", "CZK", "MKD", "RSD", "HUF"]
+
+
+def _front_signature(row):
+    """Rows with the same product_name + price set share one Front side."""
+    return tuple(row.get(col, "") for col in _FRONT_KEY_COLUMNS)
+
+
+def group_rows_for_pads(rows, chunk_size=7):
+    """
+    Groups rows into Pad-sized chunks: consecutive rows that share the same
+    Front signature (same product_name + prices) go on the same Pad, up to
+    `chunk_size` (7) rows per Pad — each row becomes ONE Back slot with its
+    own barcode/SKU/batch, while the Front is generated ONCE per group
+    (from the group's first row). A signature change always starts a new
+    group, even if the current group has fewer than 7 rows yet.
+    """
+    groups = []
+    current = []
+    current_key = None
+    for row in rows:
+        key = _front_signature(row)
+        if current and (key != current_key or len(current) >= chunk_size):
+            groups.append(current)
+            current = []
+        current.append(row)
+        current_key = key
+    if current:
+        groups.append(current)
+    return groups
+
+
+def generate_pad_for_group(group_rows, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, mapping=None):
+    """
+    Build ONE Pad PDF (bytes) for a group of 1-7 rows: ONE Front (from
+    group_rows[0]) + up to 7 Back slots, each filled with a DIFFERENT row's
+    data (different barcode/SKU/batch/etc per unit). Leftover Back slots
+    (if the group has fewer than 7 rows) are left blank.
+    """
+    if mapping is None:
+        mapping = load_mapping(config_path)
+    if not group_rows:
+        raise ValueError("group_rows is empty")
+    if len(group_rows) > 7:
+        raise ValueError(f"A Pad only has 7 Back slots, got {len(group_rows)} rows in this group")
+
+    header_row = group_rows[0]
+    front_bytes = hf.generate_single(header_row)
+
+    pad_doc = fitz.open(template_path)
+    pad_page = pad_doc[0]
+    fill_pad_header(pad_page, header_row, mapping)
+
+    front_src = fitz.open("pdf", front_bytes)
+    pad_page.show_pdf_page(fitz.Rect(mapping["front_rect"]), front_src, 0)
+    front_src.close()
+
+    for rect_coords, unit_row in zip(mapping["back_rects"], group_rows):
+        back_bytes = hb.generate_single(unit_row)
+        back_src = fitz.open("pdf", back_bytes)
+        pad_page.show_pdf_page(fitz.Rect(rect_coords), back_src, 0)
+        back_src.close()
+    # Remaining back_rects (if group has < 7 rows) are simply left blank —
+    # the template's own empty box shows there, matching a partial pad.
+
+    data = pad_doc.tobytes()
+    pad_doc.close()
+    return data
+
+
 def generate_batch(rows, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH):
-    """Returns a list of Pad PDF bytes, one per row."""
+    """
+    Groups `rows` (same product_name+price -> same Pad, up to 7 units per
+    Pad, one unique Back per row) and returns a list of Pad PDF bytes, one
+    per Pad/group.
+    """
     mapping = load_mapping(config_path)
-    return [generate_pad(row, template_path=template_path, mapping=mapping) for row in rows]
+    groups = group_rows_for_pads(rows)
+    return [generate_pad_for_group(g, template_path=template_path, mapping=mapping) for g in groups]
 
 
 def generate_batch_pdf(rows, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH):
-    """Returns ONE multi-page PDF (bytes), one Pad page per row."""
+    """Same grouping as generate_batch(), but returns ONE multi-page PDF (one Pad page per group)."""
     mapping = load_mapping(config_path)
+    groups = group_rows_for_pads(rows)
     out = fitz.open()
-    for row in rows:
-        pad_bytes = generate_pad(row, template_path=template_path, mapping=mapping)
+    for g in groups:
+        pad_bytes = generate_pad_for_group(g, template_path=template_path, mapping=mapping)
         pad_single = fitz.open("pdf", pad_bytes)
         out.insert_pdf(pad_single)
         pad_single.close()
