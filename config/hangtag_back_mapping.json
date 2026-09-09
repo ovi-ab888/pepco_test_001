@@ -1,8 +1,8 @@
 {
   "Collection": {
     "bbox": [
-      35.0,
-      214.3,
+      36.0,
+      215.0,
       90.3,
       220.3
     ],
@@ -66,12 +66,12 @@
     "color": "pink"
   },
   "barcode": {
-    "x0": 22.0,
-    "x1": 100.0,
-    "digits_y0": 278.0,
-    "digits_y1": 278.0,
-    "bars_height": 23.0,
-    "digits_fontsize": 9.0,
+    "x0": 27.0,
+    "x1": 103.0,
+    "digits_y0": 281.5,
+    "digits_y1": 279.0,
+    "bars_height": 26.5,
+    "digits_fontsize": 8.0,
     "color": "pink"
   }
 }
