@@ -7,7 +7,7 @@
       220.3
     ],
     "fontsize": 4.5,
-    "font": "arial",
+    "font": "ArialRegular.ttf",
     "color": "black"
   },
   "Colour_SKU": {
@@ -18,7 +18,7 @@
       228.5
     ],
     "fontsize": 4.5,
-    "font": "arial",
+    "font": "ArialRegular.ttf",
     "color": "black"
   },
   "Style_Merch_Season": {
@@ -29,7 +29,7 @@
       234.5
     ],
     "fontsize": 4.5,
-    "font": "arial",
+    "font": "ArialRegular.ttf",
     "color": "black"
   },
   "Batch": {
@@ -40,7 +40,7 @@
       246.6
     ],
     "fontsize": 4.5,
-    "font": "arial",
+    "font": "ArialRegular.ttf",
     "color": "black"
   },
   "washing_code": {
@@ -51,7 +51,7 @@
       44.0
     ],
     "fontsize": 6.0,
-    "font": "pictogram",
+    "font": "PEPCO_Ovi.ttf",
     "color": "pink"
   },
   "Cotton": {
@@ -62,7 +62,7 @@
       30.0
     ],
     "fontsize": 22.0,
-    "font": "pictogram",
+    "font": "PEPCO_Ovi.ttf",
     "color": "pink"
   },
   "barcode": {
@@ -72,6 +72,7 @@
     "digits_y1": 279.0,
     "bars_height": 26.5,
     "digits_fontsize": 8.0,
-    "color": "pink"
+    "color": "pink",
+    "digits_font": "helv"
   }
 }
