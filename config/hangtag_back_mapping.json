@@ -52,7 +52,7 @@
     ],
     "fontsize": 6.0,
     "font": "PEPCO_Ovi.ttf",
-    "color": "pink"
+    "color": "black"
   },
   "Cotton": {
     "bbox": [
@@ -63,7 +63,7 @@
     ],
     "fontsize": 22.0,
     "font": "PEPCO_Ovi.ttf",
-    "color": "pink"
+    "color": "black"
   },
   "barcode": {
     "x0": 27.0,
@@ -72,7 +72,7 @@
     "digits_y1": 279.0,
     "bars_height": 26.5,
     "digits_fontsize": 8.0,
-    "color": "pink",
+    "color": "black",
     "digits_font": "helv"
   }
 }
