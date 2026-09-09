@@ -263,7 +263,8 @@ def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, m
     for col, field_cfg in mapping.get("prices", {}).items():
         value = row.get(col, "")
         if value:
-            _insert_right_aligned(page, value, field_cfg["bbox"], field_cfg["fontsize"],
+            price_color = COLOR_MAP.get(field_cfg.get("color", "black"), BLACK)
+            _insert_right_aligned(page, value, field_cfg["bbox"], field_cfg["fontsize"], color=price_color,
                                    fontname=price_fontname, fontfile=price_fontfile, fontbuffer=price_fontbuffer)
 
     return doc
