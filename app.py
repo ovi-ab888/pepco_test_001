@@ -361,7 +361,7 @@ st.caption(f"Generated on {datetime.today().strftime('%d-%m-%Y')} · Hangtag Fro
 # ----------------------------------------------------------------
 # 7) Generate Pad (bulk) — Front + 7x Back + header, composited
 # ----------------------------------------------------------------
-st.header("7. Generate Pad (Front + 7×Back + Header)")
+st.header("7. Generate Pad (Front + Back × N + Header)")
 pcol1, pcol2 = st.columns(2)
 with pcol1:
     if st.button("📄 Generate ONE combined PDF (all rows) — Pad", type="primary"):
