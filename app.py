@@ -119,21 +119,11 @@ st.code(f"product_name length: {len(pn_debug)} chars\nFirst 120 chars: {pn_debug
 adj_col, prev_col = st.columns([1, 1])
 
 with adj_col:
-    st.subheader("Fonts (optional upload — for testing before committing to repo)")
-    uploaded_product_font = st.file_uploader("Product Name font (Arial.ttf)", type=["ttf", "otf"], key="pf_upload")
-    uploaded_price_font = st.file_uploader("Price font (MyriadPro-Semibold.ttf/otf)", type=["ttf", "otf"], key="prf_upload")
-
-    if uploaded_product_font is not None:
-        uploaded_product_font.seek(0)
-        product_font_bytes = uploaded_product_font.read()
-    else:
-        product_font_bytes = None
-
-    if uploaded_price_font is not None:
-        uploaded_price_font.seek(0)
-        price_font_bytes = uploaded_price_font.read()
-    else:
-        price_font_bytes = None
+    # Fonts are bundled in the repo's fonts/ folder (ArialRegular.ttf,
+    # ArialBold.ttf, MyriadProSemibold.otf) — loaded automatically, no
+    # upload needed.
+    product_font_bytes = None
+    price_font_bytes = None
 
     st.subheader("Product Name box")
     pn = mapping.get("product_name", {"bbox": [6.9, 32.5, 124.3, 134.6], "fontsize": 4.4, "color": "black", "align": "justify"})
@@ -273,19 +263,10 @@ back_preview_row = rows[back_preview_idx]
 back_adj_col, back_prev_col = st.columns([1, 1])
 
 with back_adj_col:
-    st.subheader("Fonts (optional upload — for testing before committing to repo)")
-    uploaded_arial_font = st.file_uploader("Arial font", type=["ttf", "otf"], key="back_arial_upload")
-    uploaded_pictogram_font = st.file_uploader("Pictogram font (PEPCO_Ovi.ttf)", type=["ttf", "otf"], key="back_pictogram_upload")
-
+    # Fonts are bundled in the repo's fonts/ folder (ArialRegular.ttf,
+    # PEPCO_Ovi.ttf) — loaded automatically, no upload needed.
     arial_font_bytes = None
-    if uploaded_arial_font is not None:
-        uploaded_arial_font.seek(0)
-        arial_font_bytes = uploaded_arial_font.read()
-
     pictogram_font_bytes = None
-    if uploaded_pictogram_font is not None:
-        uploaded_pictogram_font.seek(0)
-        pictogram_font_bytes = uploaded_pictogram_font.read()
 
     st.subheader("Text fields (Collection / Colour_SKU / Style_Merch_Season / Batch)")
     tf_rows = []
