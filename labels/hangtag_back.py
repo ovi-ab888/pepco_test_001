@@ -34,7 +34,7 @@ ARIAL_FONT_PATH = os.path.join(BASE_DIR, "fonts", "ArialRegular.ttf")
 PICTOGRAM_FONT_PATH = os.path.join(BASE_DIR, "fonts", "PEPCO_Ovi.ttf")
 
 BRAND_PINK = (236 / 255, 0 / 255, 140 / 255)   # #EC008C
-BLACK = (35 / 255, 31 / 255, 32 / 255)         # #231F20
+BLACK = (0, 0, 0, 1)                           # CMYK C0 M0 Y0 K100 - print-safe pure black
 
 COLOR_MAP = {"black": BLACK, "pink": BRAND_PINK}
 
