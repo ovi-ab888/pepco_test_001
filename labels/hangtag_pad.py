@@ -32,6 +32,7 @@ from labels import hangtag_back as hb
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Hangtag", "pad.pdf")
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "hangtag_pad_mapping.json")
+TAHOMA_FONT_PATH = os.path.join(BASE_DIR, "fonts", "Tahoma.ttf")
 
 BLACK = (0, 0, 0, 1)  # CMYK C0 M0 Y0 K100 - print-safe pure black
 
@@ -44,23 +45,24 @@ def load_mapping(config_path=CONFIG_PATH):
 
 
 def fill_pad_header(page, row, mapping):
-    """Fill the Pad header fields directly on the (already-opened) pad page."""
-    for col, cfg in mapping.get("header", {}).items():
-        value = row.get(col, "")
-        if value:
-            page.insert_text((cfg["x"], cfg["y"]), str(value), fontsize=cfg["fontsize"],
-                              fontname="helv", color=BLACK)
+    """
+    Fill the Pad header fields directly on the (already-opened) pad page.
+    `mapping["header"]` is a list of field configs (matches the shared
+    system's pad_header_mapping.json format):
+        {"name": "Order_ID", "type": "text", "x": 97, "y": 132,
+         "font_size": 9, "font": "tahoma", "prefix": ""}
+    """
+    fontname = "helv"
+    if os.path.exists(TAHOMA_FONT_PATH):
+        page.insert_font(fontfile=TAHOMA_FONT_PATH, fontname="tahoma")
+        fontname = "tahoma"
 
-    swatch_cfg = mapping.get("colour_swatch_name")
-    colour = row.get("Colour", "")
-    if swatch_cfg and colour:
-        rect = fitz.Rect(swatch_cfg["bbox"])
-        text = str(colour).upper()
-        fs = swatch_cfg["fontsize"]
-        tw = fitz.get_text_length(text, fontname="helv", fontsize=fs)
-        x = rect.x0 + (rect.width - tw) / 2 if swatch_cfg.get("align", "center") == "center" else rect.x0
-        y = rect.y1 - (rect.height - fs) / 2 - 1
-        page.insert_text((x, y), text, fontsize=fs, fontname="helv", color=BLACK)
+    for field in mapping.get("header", []):
+        value = row.get(field["name"], "")
+        if value:
+            text = f"{field.get('prefix', '')}{value}"
+            page.insert_text((field["x"], field["y"]), text, fontsize=field["font_size"],
+                              fontname=fontname, color=BLACK)
 
 
 def generate_pad_repeat_back(row, front_bytes=None, back_bytes=None, template_path=TEMPLATE_PATH,
