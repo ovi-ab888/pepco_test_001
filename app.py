@@ -17,6 +17,7 @@ from datetime import datetime
 import fitz  # PyMuPDF
 from labels import hangtag_front as hf
 from labels import hangtag_back as hb
+from labels import hangtag_pad as hp
 
 st.set_page_config(page_title="PEPCO Hangtag Front Generator", page_icon="🏷️", layout="wide")
 st.title("🏷️ PEPCO Hangtag — Front Side Generator")
@@ -356,3 +357,120 @@ with back_prev_col:
 
 st.divider()
 st.caption(f"Generated on {datetime.today().strftime('%d-%m-%Y')} · Hangtag Front+Back v0.4 (live adjustor)")
+
+# ----------------------------------------------------------------
+# 7) Generate Pad (bulk) — Front + 7x Back + header, composited
+# ----------------------------------------------------------------
+st.header("7. Generate Pad (Front + 7×Back + Header)")
+pcol1, pcol2 = st.columns(2)
+with pcol1:
+    if st.button("📄 Generate ONE combined PDF (all rows) — Pad", type="primary"):
+        try:
+            pdf_bytes = hp.generate_batch_pdf(rows)
+            fname = f"Hangtag_Pad_{rows[0].get('Order_ID','batch')}_{datetime.today().strftime('%d%m%Y')}.pdf"
+            st.download_button("⬇️ Download combined PDF", data=pdf_bytes, file_name=fname,
+                                mime="application/pdf", key="pad_combined_dl")
+        except FileNotFoundError:
+            st.error("templates/Hangtag/pad.pdf paoa jayni — template file ta repo-te rakho.")
+        except Exception as e:
+            st.error(f"Generate korte giye error: {e}")
+with pcol2:
+    if st.button("📑 Generate SEPARATE PDF per row — Pad"):
+        try:
+            pdfs = hp.generate_batch(rows)
+            st.success(f"{len(pdfs)} ta Pad PDF ready.")
+            for i, (row, pdf_bytes) in enumerate(zip(rows, pdfs), start=1):
+                fname = f"Hangtag_Pad_{row.get('Order_ID','row')}_{i}.pdf"
+                st.download_button(f"⬇️ {fname}", data=pdf_bytes, file_name=fname,
+                                    mime="application/pdf", key=f"pad_dl_{i}")
+        except FileNotFoundError:
+            st.error("templates/Hangtag/pad.pdf paoa jayni — template file ta repo-te rakho.")
+        except Exception as e:
+            st.error(f"Generate korte giye error: {e}")
+
+# ----------------------------------------------------------------
+# 8) Pad — Live Preview + Header Position Adjustor
+# ----------------------------------------------------------------
+st.header("8. 🎯 Live Preview & Header Adjustor — Pad")
+
+DEFAULT_PAD_MAPPING = {
+    "front_rect": [55.2, 225.5, 185.6, 551.5],
+    "back_rects": [
+        [189.2, 225.5, 319.6, 551.5], [325.3, 225.5, 455.7, 551.5],
+        [461.4, 225.5, 591.7, 551.5], [597.4, 225.5, 727.8, 551.5],
+        [733.5, 225.5, 863.9, 551.5], [869.5, 225.5, 999.9, 551.5],
+        [1005.6, 225.5, 1136.0, 551.5],
+    ],
+    "header": {
+        "Order_ID": {"x": 98.0, "y": 131.5, "fontsize": 9.0},
+        "Item_classification": {"x": 98.0, "y": 146.5, "fontsize": 9.0},
+        "Style": {"x": 98.0, "y": 161.5, "fontsize": 9.0},
+        "Colour": {"x": 101.0, "y": 176.5, "fontsize": 9.0},
+        "Designer": {"x": 474.0, "y": 73.7, "fontsize": 7.9},
+        "Dept": {"x": 608.0, "y": 85.0, "fontsize": 7.9},
+    },
+    "colour_swatch_name": {"bbox": [1077.4, 67.8, 1122.8, 82.8], "fontsize": 12.0, "align": "center"},
+}
+
+if "pad_mapping" not in st.session_state or "header" not in st.session_state.pad_mapping:
+    try:
+        st.session_state.pad_mapping = hp.load_mapping()
+    except Exception:
+        st.session_state.pad_mapping = DEFAULT_PAD_MAPPING
+
+pad_mapping = st.session_state.pad_mapping
+
+pad_preview_idx = st.selectbox("Preview korার jonno row select koro (Pad)", options=list(range(len(rows))),
+                                format_func=lambda i: f"Row {i+1} — {rows[i].get('Order_ID','')}",
+                                key="pad_preview_idx")
+pad_preview_row = rows[pad_preview_idx]
+
+pad_adj_col, pad_prev_col = st.columns([1, 1])
+
+with pad_adj_col:
+    st.subheader("Header fields")
+    hdr_rows = []
+    for col, cfg in pad_mapping.get("header", {}).items():
+        hdr_rows.append({"field": col, "x": cfg["x"], "y": cfg["y"], "fontsize": cfg["fontsize"]})
+    hdr_df = pd.DataFrame(hdr_rows)
+    edited_hdr_df = st.data_editor(hdr_df, use_container_width=True, num_rows="fixed", key="pad_hdr_editor")
+    for _, r in edited_hdr_df.iterrows():
+        pad_mapping["header"][r["field"]] = {"x": r["x"], "y": r["y"], "fontsize": r["fontsize"]}
+
+    st.subheader("Colour swatch name box")
+    sw = pad_mapping.get("colour_swatch_name", DEFAULT_PAD_MAPPING["colour_swatch_name"])
+    sw_x0 = st.number_input("swatch x0", value=float(sw["bbox"][0]), key="sw_x0")
+    sw_y0 = st.number_input("swatch y0", value=float(sw["bbox"][1]), key="sw_y0")
+    sw_x1 = st.number_input("swatch x1", value=float(sw["bbox"][2]), key="sw_x1")
+    sw_y1 = st.number_input("swatch y1", value=float(sw["bbox"][3]), key="sw_y1")
+    sw_fs = st.number_input("swatch fontsize", value=float(sw["fontsize"]), step=0.5, key="sw_fs")
+    pad_mapping["colour_swatch_name"] = {"bbox": [sw_x0, sw_y0, sw_x1, sw_y1], "fontsize": sw_fs, "align": "center"}
+
+    st.caption("Front/Back slot rectangles (front_rect / back_rects) shared structural positions — "
+               "change only if the Pad template's box layout itself changes.")
+
+    st.download_button(
+        "⬇️ Download Updated hangtag_pad_mapping.json",
+        data=json.dumps(pad_mapping, indent=2, ensure_ascii=False),
+        file_name="hangtag_pad_mapping.json",
+        mime="application/json",
+        key="pad_json_dl",
+    )
+    st.caption("Download kore GitHub-e config/hangtag_pad_mapping.json file ta replace koro.")
+
+with pad_prev_col:
+    st.subheader("Preview")
+    try:
+        pad_bytes_preview = hp.generate_pad(pad_preview_row, mapping=pad_mapping)
+        pad_doc_preview = fitz.open("pdf", pad_bytes_preview)
+        pix = pad_doc_preview[0].get_pixmap(dpi=150)
+        img_bytes = pix.tobytes("png")
+        pad_doc_preview.close()
+        st.image(img_bytes, use_container_width=True)
+    except FileNotFoundError:
+        st.error("templates/Hangtag/pad.pdf paoa jayni — template file ta repo-te rakho.")
+    except Exception as e:
+        st.error(f"Preview generate korte giye error: {e}")
+
+st.divider()
+st.caption(f"Generated on {datetime.today().strftime('%d-%m-%Y')} · Hangtag Front+Back+Pad v0.5 (live adjustor)")
