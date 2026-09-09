@@ -382,18 +382,20 @@ DEFAULT_PAD_MAPPING = {
         [733.5, 225.5, 863.9, 551.5], [869.5, 225.5, 999.9, 551.5],
         [1005.6, 225.5, 1136.0, 551.5],
     ],
-    "header": {
-        "Order_ID": {"x": 98.0, "y": 131.5, "fontsize": 9.0},
-        "Item_classification": {"x": 98.0, "y": 146.5, "fontsize": 9.0},
-        "Style": {"x": 98.0, "y": 161.5, "fontsize": 9.0},
-        "Colour": {"x": 101.0, "y": 176.5, "fontsize": 9.0},
-        "Designer": {"x": 474.0, "y": 73.7, "fontsize": 7.9},
-        "Dept": {"x": 608.0, "y": 85.0, "fontsize": 7.9},
-    },
-    "colour_swatch_name": {"bbox": [1077.4, 67.8, 1122.8, 82.8], "fontsize": 12.0, "align": "center"},
+    "header": [
+        {"name": "Order_ID", "type": "text", "x": 97, "y": 132, "font_size": 9, "font": "tahoma", "prefix": ""},
+        {"name": "Style", "type": "text", "x": 99, "y": 147, "font_size": 9, "font": "tahoma", "prefix": ""},
+        {"name": "Supplier_product_code", "type": "text", "x": 97, "y": 162, "font_size": 9, "font": "tahoma", "prefix": ""},
+        {"name": "Colour", "type": "text", "x": 97, "y": 177, "font_size": 9, "font": "tahoma", "prefix": ""},
+        {"name": "Size", "type": "text", "x": 32, "y": 192, "font_size": 9, "font": "tahoma", "prefix": "SIZE               :  "},
+        {"name": "today_date", "type": "text", "x": 472, "y": 51, "font_size": 9, "font": "tahoma", "prefix": ""},
+        {"name": "Item_classification", "type": "text", "x": 606, "y": 86, "font_size": 8, "font": "tahoma", "prefix": ""},
+        {"name": "Supplier_name", "type": "text", "x": 606, "y": 98, "font_size": 8, "font": "tahoma", "prefix": ""},
+        {"name": "Designer", "type": "text", "x": 472, "y": 74, "font_size": 8, "font": "tahoma", "prefix": ""},
+    ],
 }
 
-if "pad_mapping" not in st.session_state or "header" not in st.session_state.pad_mapping:
+if "pad_mapping" not in st.session_state or not isinstance(st.session_state.pad_mapping.get("header"), list):
     try:
         st.session_state.pad_mapping = hp.load_mapping()
     except Exception:
@@ -410,25 +412,13 @@ pad_adj_col, pad_prev_col = st.columns([1, 1])
 
 with pad_adj_col:
     st.subheader("Header fields")
-    hdr_rows = []
-    for col, cfg in pad_mapping.get("header", {}).items():
-        hdr_rows.append({"field": col, "x": cfg["x"], "y": cfg["y"], "fontsize": cfg["fontsize"]})
-    hdr_df = pd.DataFrame(hdr_rows)
+    hdr_df = pd.DataFrame(pad_mapping.get("header", []))
     edited_hdr_df = st.data_editor(hdr_df, use_container_width=True, num_rows="fixed", key="pad_hdr_editor")
-    for _, r in edited_hdr_df.iterrows():
-        pad_mapping["header"][r["field"]] = {"x": r["x"], "y": r["y"], "fontsize": r["fontsize"]}
+    pad_mapping["header"] = edited_hdr_df.to_dict(orient="records")
 
-    st.subheader("Colour swatch name box")
-    sw = pad_mapping.get("colour_swatch_name", DEFAULT_PAD_MAPPING["colour_swatch_name"])
-    sw_x0 = st.number_input("swatch x0", value=float(sw["bbox"][0]), key="sw_x0")
-    sw_y0 = st.number_input("swatch y0", value=float(sw["bbox"][1]), key="sw_y0")
-    sw_x1 = st.number_input("swatch x1", value=float(sw["bbox"][2]), key="sw_x1")
-    sw_y1 = st.number_input("swatch y1", value=float(sw["bbox"][3]), key="sw_y1")
-    sw_fs = st.number_input("swatch fontsize", value=float(sw["fontsize"]), step=0.5, key="sw_fs")
-    pad_mapping["colour_swatch_name"] = {"bbox": [sw_x0, sw_y0, sw_x1, sw_y1], "fontsize": sw_fs, "align": "center"}
-
-    st.caption("Front/Back slot rectangles (front_rect / back_rects) shared structural positions — "
-               "change only if the Pad template's box layout itself changes.")
+    st.caption("Header font is Tahoma (fonts/Tahoma.ttf, bundled — no upload needed). "
+               "Front/Back slot rectangles (front_rect / back_rects) are shared structural "
+               "positions — change only if the Pad template's box layout itself changes.")
 
     st.download_button(
         "⬇️ Download Updated hangtag_pad_mapping.json",
