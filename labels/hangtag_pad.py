@@ -33,7 +33,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo r
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Hangtag", "pad.pdf")
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "hangtag_pad_mapping.json")
 
-BLACK = (35 / 255, 31 / 255, 32 / 255)
+BLACK = (0, 0, 0, 1)  # CMYK C0 M0 Y0 K100 - print-safe pure black
 
 fitz.TOOLS.set_aa_level(0)  # keep barcode preview scannable, same as hangtag_back.py
 
