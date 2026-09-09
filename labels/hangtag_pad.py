@@ -108,15 +108,26 @@ def _front_signature(row):
     return tuple(row.get(col, "") for col in _FRONT_KEY_COLUMNS)
 
 
-def group_rows_for_pads(rows, chunk_size=7):
+def group_rows_for_pads(rows, chunk_size=None, mapping=None):
     """
     Groups rows into Pad-sized chunks: consecutive rows that share the same
     Front signature (same product_name + prices) go on the same Pad, up to
-    `chunk_size` (7) rows per Pad — each row becomes ONE Back slot with its
+    `chunk_size` rows per Pad — each row becomes ONE Back slot with its
     own barcode/SKU/batch, while the Front is generated ONCE per group
     (from the group's first row). A signature change always starts a new
-    group, even if the current group has fewer than 7 rows yet.
+    group, even if the current group has fewer rows than chunk_size yet.
+
+    `chunk_size` defaults to however many Back slots the Pad template
+    actually has (len(mapping["back_rects"])) — so a template variant with
+    8 Back slots instead of 7 is picked up automatically, no code change
+    needed. Pass `mapping` (or rely on the default CONFIG_PATH) so this can
+    be computed; an explicit `chunk_size` always overrides it.
     """
+    if chunk_size is None:
+        if mapping is None:
+            mapping = load_mapping()
+        chunk_size = len(mapping["back_rects"])
+
     groups = []
     current = []
     current_key = None
@@ -143,8 +154,11 @@ def generate_pad_for_group(group_rows, template_path=TEMPLATE_PATH, config_path=
         mapping = load_mapping(config_path)
     if not group_rows:
         raise ValueError("group_rows is empty")
-    if len(group_rows) > 7:
-        raise ValueError(f"A Pad only has 7 Back slots, got {len(group_rows)} rows in this group")
+    if len(group_rows) > len(mapping["back_rects"]):
+        raise ValueError(
+            f"This Pad template only has {len(mapping['back_rects'])} Back slots, "
+            f"got {len(group_rows)} rows in this group"
+        )
 
     header_row = group_rows[0]
     front_bytes = hf.generate_single(header_row)
@@ -172,19 +186,19 @@ def generate_pad_for_group(group_rows, template_path=TEMPLATE_PATH, config_path=
 
 def generate_batch(rows, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH):
     """
-    Groups `rows` (same product_name+price -> same Pad, up to 7 units per
-    Pad, one unique Back per row) and returns a list of Pad PDF bytes, one
-    per Pad/group.
+    Groups `rows` (same product_name+price -> same Pad, one unique Back
+    per row, up to however many Back slots the template has) and returns
+    a list of Pad PDF bytes, one per Pad/group.
     """
     mapping = load_mapping(config_path)
-    groups = group_rows_for_pads(rows)
+    groups = group_rows_for_pads(rows, mapping=mapping)
     return [generate_pad_for_group(g, template_path=template_path, mapping=mapping) for g in groups]
 
 
 def generate_batch_pdf(rows, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH):
     """Same grouping as generate_batch(), but returns ONE multi-page PDF (one Pad page per group)."""
     mapping = load_mapping(config_path)
-    groups = group_rows_for_pads(rows)
+    groups = group_rows_for_pads(rows, mapping=mapping)
     out = fitz.open()
     for g in groups:
         pad_bytes = generate_pad_for_group(g, template_path=template_path, mapping=mapping)
