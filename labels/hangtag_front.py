@@ -29,11 +29,15 @@ import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Hangtag", "front_side.pdf")
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "hangtag_front_mapping.json")
-UNICODE_FONT_PATH = os.path.join(BASE_DIR, "fonts", "DejaVuSans.ttf")
+
+# All fonts are bundled in the repo's fonts/ folder — no upload needed.
+ARIAL_FONT_PATH = os.path.join(BASE_DIR, "fonts", "ArialRegular.ttf")
 BOLD_FONT_PATH = os.path.join(BASE_DIR, "fonts", "ArialBold.ttf")
+MYRIADPRO_FONT_PATH = os.path.join(BASE_DIR, "fonts", "MyriadProSemibold.otf")
+UNICODE_FONT_PATH = ARIAL_FONT_PATH  # kept as an alias for older code paths
 
 BRAND_PINK = (236 / 255, 0 / 255, 140 / 255)   # #EC008C - price numbers
-BLACK = (35 / 255, 31 / 255, 32 / 255)         # #231F20 - body text
+BLACK = (0, 0, 0, 1)                           # CMYK C0 M0 Y0 K100 - print-safe pure black
 
 COLOR_MAP = {"black": BLACK, "pink": BRAND_PINK}
 ALIGN_MAP = {"left": 0, "center": 1, "right": 2, "justify": 3}
@@ -245,17 +249,22 @@ def fill_front_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, m
                 )
 
     price_fontname = "helv"
+    price_fontfile = None
     price_fontbuffer = None
     if price_font_bytes:
         page.insert_font(fontbuffer=price_font_bytes, fontname="price_font")
         price_fontname = "price_font"
         price_fontbuffer = price_font_bytes
+    elif os.path.exists(MYRIADPRO_FONT_PATH):
+        page.insert_font(fontfile=MYRIADPRO_FONT_PATH, fontname="price_font")
+        price_fontname = "price_font"
+        price_fontfile = MYRIADPRO_FONT_PATH
 
     for col, field_cfg in mapping.get("prices", {}).items():
         value = row.get(col, "")
         if value:
             _insert_right_aligned(page, value, field_cfg["bbox"], field_cfg["fontsize"],
-                                   fontname=price_fontname, fontbuffer=price_fontbuffer)
+                                   fontname=price_fontname, fontfile=price_fontfile, fontbuffer=price_fontbuffer)
 
     return doc
 
