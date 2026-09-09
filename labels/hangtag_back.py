@@ -178,6 +178,19 @@ def fill_back_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, ma
 
         fs = bc_cfg["digits_fontsize"]
         y = bc_cfg["digits_y1"] - (bc_cfg["digits_y1"] - bc_cfg["digits_y0"] - fs) / 2 - 1
+        # Illustrator-style "tracking": 100 = +0.1em extra space per
+        # character (tracking/1000 * fontsize). Configurable via
+        # bc_cfg["digits_tracking"] (defaults to 100 to match reference).
+        tracking = bc_cfg.get("digits_tracking", 100) / 1000.0 * fs
+
+        def _tracked_width(s):
+            return fitz.get_text_length(s, fontname="helv", fontsize=fs) + tracking * max(len(s) - 1, 0)
+
+        def _draw_tracked(s, x_start, y_pos):
+            x = x_start
+            for ch in s:
+                page.insert_text((x, y_pos), ch, fontsize=fs, fontname="helv", color=color)
+                x += fitz.get_text_length(ch, fontname="helv", fontsize=fs) + tracking
 
         if len(barcode) == 13:
             # Authentic EAN13 digit layout: 1st digit sits to the LEFT of
@@ -187,20 +200,20 @@ def fill_back_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, ma
             first_digit, left_group, right_group = barcode[0], barcode[1:7], barcode[7:]
             bars_mid = (bc_cfg["x0"] + bc_cfg["x1"]) / 2
 
-            fd_w = fitz.get_text_length(first_digit, fontname="helv", fontsize=fs)
-            page.insert_text((bc_cfg["x0"] - fd_w - 2, y), first_digit, fontsize=fs, fontname="helv", color=color)
+            fd_w = _tracked_width(first_digit)
+            _draw_tracked(first_digit, bc_cfg["x0"] - fd_w - 2, y)
 
-            lg_w = fitz.get_text_length(left_group, fontname="helv", fontsize=fs)
+            lg_w = _tracked_width(left_group)
             lg_x = bc_cfg["x0"] + (bars_mid - bc_cfg["x0"] - lg_w) / 2
-            page.insert_text((lg_x, y), left_group, fontsize=fs, fontname="helv", color=color)
+            _draw_tracked(left_group, lg_x, y)
 
-            rg_w = fitz.get_text_length(right_group, fontname="helv", fontsize=fs)
+            rg_w = _tracked_width(right_group)
             rg_x = bars_mid + (bc_cfg["x1"] - bars_mid - rg_w) / 2
-            page.insert_text((rg_x, y), right_group, fontsize=fs, fontname="helv", color=color)
+            _draw_tracked(right_group, rg_x, y)
         else:
-            tw = fitz.get_text_length(barcode, fontname="helv", fontsize=fs)
+            tw = _tracked_width(barcode)
             x = bc_cfg["x0"] + ((bc_cfg["x1"] - bc_cfg["x0"]) - tw) / 2
-            page.insert_text((x, y), barcode, fontsize=fs, fontname="helv", color=color)
+            _draw_tracked(barcode, x, y)
 
     return doc
 
