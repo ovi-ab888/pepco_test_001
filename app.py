@@ -1,36 +1,40 @@
 """
-app.py — PEPCO Hangtag Front Side Generator (CSV-driven + live position/font adjustor)
+app.py — PEPCO Hangtag Generator (production, clean)
+
+Upload a data CSV (Order_ID, Style, Colour, product_name, prices,
+Collection, Colour_SKU, Batch, barcode, washing_code, Cotton, etc.) and
+download the final Pad layout PDF(s) — Front + Back(s) + header, ready
+to print.
 
 Repo structure needed:
     app.py
     labels/hangtag_front.py
+    labels/hangtag_back.py
+    labels/hangtag_pad.py
     config/hangtag_front_mapping.json
-    fonts/DejaVuSans.ttf               <- Unicode font (Cyrillic/Greek support)
-    templates/Hangtag/front_side.pdf   <- your cleaned template
+    config/hangtag_back_mapping.json
+    config/hangtag_pad_mapping.json
+    fonts/ArialRegular.ttf, ArialBold.ttf, MyriadProSemibold.otf, PEPCO_Ovi.ttf, Tahoma.ttf
+    templates/Hangtag/front_side.pdf, back_side.pdf, pad.pdf
 """
 
 import streamlit as st
 import pandas as pd
-import json
 from datetime import datetime
 
-import fitz  # PyMuPDF
-from labels import hangtag_front as hf
-from labels import hangtag_back as hb
 from labels import hangtag_pad as hp
 
-st.set_page_config(page_title="PEPCO Hangtag Front Generator", page_icon="🏷️", layout="wide")
-st.title("🏷️ PEPCO Hangtag — Front Side Generator")
-st.caption("CSV upload → generate → preview → adjust position/font size live.")
+st.set_page_config(page_title="PEPCO Hangtag Generator", page_icon="🏷️", layout="wide")
+st.title("🏷️ PEPCO Hangtag Generator")
 
 # ----------------------------------------------------------------
-# 1) Upload CSV
+# 1) Upload Data CSV
 # ----------------------------------------------------------------
 st.header("1. Upload Data CSV")
-uploaded_csv = st.file_uploader("Data CSV (Order_ID, product_name, EUR, PLN, ...)", type=["csv"])
+uploaded_csv = st.file_uploader("Data CSV", type=["csv"])
 
 if uploaded_csv is None:
-    st.info("CSV upload korle data preview + generate option ashbe.")
+    st.info("CSV upload korle data preview + download option ashbe.")
     st.stop()
 
 try:
@@ -46,402 +50,50 @@ if df.empty:
 st.success(f"{len(df)} ta row load hoise.")
 
 # ----------------------------------------------------------------
-# 2) Preview / edit data
+# 2) Review / edit data
 # ----------------------------------------------------------------
 st.header("2. Review Data")
+st.caption("Kono field change lagle direct table-e edit koro.")
 edited_df = st.data_editor(df, use_container_width=True, num_rows="fixed")
 rows = edited_df.fillna("").to_dict(orient="records")
 
-# ---- Diagnostic: flag rows with missing/empty product_name ----
-missing_pn = [i for i, r in enumerate(rows) if not str(r.get("product_name", "")).strip()]
-if missing_pn:
-    st.warning(f"⚠️ {len(missing_pn)} ta row-e 'product_name' khali ache (row index: {missing_pn}). "
-               f"CSV-e oi column check koro.")
+# ----------------------------------------------------------------
+# 3) Generate & Download Pad Layout
+# ----------------------------------------------------------------
+st.header("3. Download Pad Layout")
 
-# ----------------------------------------------------------------
-# 3) Generate (bulk download)
-# ----------------------------------------------------------------
-st.header("3. Generate Front Side (bulk)")
+groups = hp.group_rows_for_pads(rows)
+st.caption(f"{len(rows)} ta row → {len(groups)} ta Pad-e group hoise "
+           f"(same product/price -> ekshathe, protita Pad-e max "
+           f"{len(hp.load_mapping()['back_rects'])} ta unit).")
+
 col1, col2 = st.columns(2)
+
 with col1:
-    if st.button("📄 Generate ONE combined PDF (all rows)", type="primary"):
-        try:
-            pdf_bytes = hf.generate_batch_pdf(rows)
-            fname = f"Hangtag_Front_{rows[0].get('Order_ID','batch')}_{datetime.today().strftime('%d%m%Y')}.pdf"
-            st.download_button("⬇️ Download combined PDF", data=pdf_bytes, file_name=fname,
-                                mime="application/pdf")
-        except FileNotFoundError:
-            st.error("templates/Hangtag/front_side.pdf paoa jayni — template file ta repo-te rakho.")
-        except Exception as e:
-            st.error(f"Generate korte giye error: {e}")
-with col2:
-    if st.button("📑 Generate SEPARATE PDF per row"):
-        try:
-            pdfs = hf.generate_batch(rows)
-            st.success(f"{len(pdfs)} ta PDF ready.")
-            for i, (row, pdf_bytes) in enumerate(zip(rows, pdfs), start=1):
-                fname = f"Hangtag_Front_{row.get('Order_ID','row')}_{i}.pdf"
-                st.download_button(f"⬇️ {fname}", data=pdf_bytes, file_name=fname,
-                                    mime="application/pdf", key=f"dl_{i}")
-        except FileNotFoundError:
-            st.error("templates/Hangtag/front_side.pdf paoa jayni — template file ta repo-te rakho.")
-        except Exception as e:
-            st.error(f"Generate korte giye error: {e}")
-
-# ----------------------------------------------------------------
-# 4) Live Preview + Position/Font Adjustor
-# ----------------------------------------------------------------
-st.header("4. 🎯 Live Preview & Position/Font Adjustor")
-st.caption("Ekhane change korle sathe sathe preview update hobe. Thik hoye gele niche theke JSON download kore GitHub-e config/hangtag_front_mapping.json replace koro.")
-
-if "mapping" not in st.session_state or "auto_fit" not in st.session_state.mapping.get("product_name", {}):
-    # Force a fresh reload if session_state has a stale mapping from before
-    # the auto_fit/align features existed (old cached session data).
-    try:
-        st.session_state.mapping = hf.load_mapping()
-    except Exception:
-        st.session_state.mapping = {
-            "product_name": {"bbox": [6.9, 32.5, 124.3, 134.6], "fontsize": 4.4, "color": "black",
-                              "align": "justify", "auto_fit": True, "max_fontsize": 5.5,
-                              "min_fontsize": 3.5, "fit_step": 0.1},
-            "prices": {},
-        }
-
-mapping = st.session_state.mapping
-
-preview_row_idx = st.selectbox("Preview korার jonno row select koro", options=list(range(len(rows))),
-                                format_func=lambda i: f"Row {i+1} — {rows[i].get('Order_ID','')}")
-preview_row = rows[preview_row_idx]
-
-pn_debug = str(preview_row.get("product_name", ""))
-st.code(f"product_name length: {len(pn_debug)} chars\nFirst 120 chars: {pn_debug[:120]!r}", language=None)
-
-adj_col, prev_col = st.columns([1, 1])
-
-with adj_col:
-    # Fonts are bundled in the repo's fonts/ folder (ArialRegular.ttf,
-    # ArialBold.ttf, MyriadProSemibold.otf) — loaded automatically, no
-    # upload needed.
-    product_font_bytes = None
-    price_font_bytes = None
-
-    st.subheader("Product Name box")
-    pn = mapping.get("product_name", {"bbox": [6.9, 32.5, 124.3, 134.6], "fontsize": 4.4, "color": "black", "align": "justify"})
-    pn_x0 = st.number_input("x0", value=float(pn["bbox"][0]), key="pn_x0")
-    pn_y0 = st.number_input("y0", value=float(pn["bbox"][1]), key="pn_y0")
-    pn_x1 = st.number_input("x1", value=float(pn["bbox"][2]), key="pn_x1")
-    pn_y1 = st.number_input("y1", value=float(pn["bbox"][3]), key="pn_y1")
-    pn_align = st.selectbox("Align", options=["justify", "left", "center", "right"],
-                             index=["justify", "left", "center", "right"].index(pn.get("align", "justify")),
-                             key="pn_align")
-
-    pn_auto_fit = st.checkbox("Auto-fit fontsize (fill the box automatically)",
-                               value=pn.get("auto_fit", True), key="pn_auto_fit")
-
-    if pn_auto_fit:
-        c1, c2, c3 = st.columns(3)
-        pn_max_fs = c1.number_input("Max font size", value=float(pn.get("max_fontsize", 5.5)), step=0.1, key="pn_max_fs")
-        pn_min_fs = c2.number_input("Min font size", value=float(pn.get("min_fontsize", 3.5)), step=0.1, key="pn_min_fs")
-        pn_step = c3.number_input("Fit step", value=float(pn.get("fit_step", 0.1)), step=0.05, key="pn_fit_step")
-        mapping["product_name"] = {
-            "bbox": [pn_x0, pn_y0, pn_x1, pn_y1], "fontsize": pn_max_fs, "color": pn.get("color", "black"),
-            "align": pn_align, "auto_fit": True, "max_fontsize": pn_max_fs,
-            "min_fontsize": pn_min_fs, "fit_step": pn_step,
-        }
-    else:
-        pn_fs = st.number_input("Font size", value=float(pn.get("fontsize", 4.4)), step=0.1, key="pn_fs")
-        mapping["product_name"] = {"bbox": [pn_x0, pn_y0, pn_x1, pn_y1], "fontsize": pn_fs,
-                                    "color": pn.get("color", "black"), "align": pn_align, "auto_fit": False}
-
-    st.subheader("Price fields")
-    price_rows = []
-    for cur, cfg in mapping.get("prices", {}).items():
-        price_rows.append({"currency": cur, "x0": cfg["bbox"][0], "y0": cfg["bbox"][1],
-                            "x1": cfg["bbox"][2], "y1": cfg["bbox"][3], "fontsize": cfg["fontsize"]})
-    price_df = pd.DataFrame(price_rows)
-    edited_price_df = st.data_editor(price_df, use_container_width=True, num_rows="fixed", key="price_editor")
-
-    new_prices = {}
-    for _, r in edited_price_df.iterrows():
-        new_prices[r["currency"]] = {"bbox": [r["x0"], r["y0"], r["x1"], r["y1"]], "fontsize": r["fontsize"]}
-    mapping["prices"] = new_prices
-
-    if st.button("🔄 Render Preview", type="primary"):
-        st.session_state.render_trigger = True
-
-    st.download_button(
-        "⬇️ Download Updated hangtag_front_mapping.json",
-        data=json.dumps(mapping, indent=2, ensure_ascii=False),
-        file_name="hangtag_front_mapping.json",
-        mime="application/json",
-    )
-    st.caption("Download kore GitHub-e config/hangtag_front_mapping.json file ta replace koro.")
-
-with prev_col:
-    st.subheader("Preview")
-    try:
-        import warnings
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            doc = hf.fill_front_side(preview_row, mapping=mapping,
-                                      product_font_bytes=product_font_bytes,
-                                      price_font_bytes=price_font_bytes)
-            for w in caught:
-                st.warning(f"⚠️ {w.message}")
-        pix = doc[0].get_pixmap(dpi=200)
-        img_bytes = pix.tobytes("png")
-        doc.close()
-        st.image(img_bytes, use_container_width=True)
-    except FileNotFoundError:
-        st.error("templates/Hangtag/front_side.pdf paoa jayni — template file ta repo-te rakho.")
-    except Exception as e:
-        st.error(f"Preview generate korte giye error: {e}")
-
-st.divider()
-st.caption(f"Generated on {datetime.today().strftime('%d-%m-%Y')} · Hangtag Front v0.3 (live adjustor)")
-
-# ==================================================================
-# BACK SIDE
-# ==================================================================
-st.divider()
-st.header("5. Generate Back Side (bulk)")
-bcol1, bcol2 = st.columns(2)
-with bcol1:
-    if st.button("📄 Generate ONE combined PDF (all rows) — Back", type="primary"):
-        try:
-            pdf_bytes = hb.generate_batch_pdf(rows)
-            fname = f"Hangtag_Back_{rows[0].get('Order_ID','batch')}_{datetime.today().strftime('%d%m%Y')}.pdf"
-            st.download_button("⬇️ Download combined PDF", data=pdf_bytes, file_name=fname,
-                                mime="application/pdf", key="back_combined_dl")
-        except FileNotFoundError:
-            st.error("templates/Hangtag/back_side.pdf paoa jayni — template file ta repo-te rakho.")
-        except Exception as e:
-            st.error(f"Generate korte giye error: {e}")
-with bcol2:
-    if st.button("📑 Generate SEPARATE PDF per row — Back"):
-        try:
-            pdfs = hb.generate_batch(rows)
-            st.success(f"{len(pdfs)} ta PDF ready.")
-            for i, (row, pdf_bytes) in enumerate(zip(rows, pdfs), start=1):
-                fname = f"Hangtag_Back_{row.get('Order_ID','row')}_{i}.pdf"
-                st.download_button(f"⬇️ {fname}", data=pdf_bytes, file_name=fname,
-                                    mime="application/pdf", key=f"back_dl_{i}")
-        except FileNotFoundError:
-            st.error("templates/Hangtag/back_side.pdf paoa jayni — template file ta repo-te rakho.")
-        except Exception as e:
-            st.error(f"Generate korte giye error: {e}")
-
-# ----------------------------------------------------------------
-# 6) Back Side — Live Preview + Position/Font Adjustor
-# ----------------------------------------------------------------
-st.header("6. 🎯 Live Preview & Position/Font Adjustor — Back Side")
-
-DEFAULT_BACK_MAPPING = {
-    "Collection": {"bbox": [50.6, 214.3, 90.3, 220.3], "fontsize": 4.5, "font": "arial", "color": "black"},
-    "Colour_SKU": {"bbox": [49.4, 222.5, 91.6, 228.5], "fontsize": 4.5, "font": "arial", "color": "black"},
-    "Style_Merch_Season": {"bbox": [43.0, 228.5, 98.0, 234.5], "fontsize": 4.5, "font": "arial", "color": "black"},
-    "Batch": {"bbox": [59.4, 240.6, 90.3, 246.6], "fontsize": 4.5, "font": "arial", "color": "black"},
-    "washing_code": {"bbox": [30.9, 32.5, 100.0, 44.0], "fontsize": 6.0, "font": "pictogram", "color": "pink"},
-    "Cotton": {"bbox": [96.5, 6.0, 119.1, 28.9], "fontsize": 6.0, "font": "pictogram", "color": "pink"},
-    "barcode": {"x0": 21.2, "x1": 101.2, "digits_y0": 274.5, "digits_y1": 285.0,
-                "digits_fontsize": 8.8, "bars_height": 34, "color": "pink"},
-}
-
-if "back_mapping" not in st.session_state:
-    try:
-        st.session_state.back_mapping = hb.load_mapping()
-    except Exception:
-        st.session_state.back_mapping = DEFAULT_BACK_MAPPING
-
-back_mapping = st.session_state.back_mapping
-
-back_preview_idx = st.selectbox("Preview korার jonno row select koro (Back)", options=list(range(len(rows))),
-                                 format_func=lambda i: f"Row {i+1} — {rows[i].get('Order_ID','')}",
-                                 key="back_preview_idx")
-back_preview_row = rows[back_preview_idx]
-
-back_adj_col, back_prev_col = st.columns([1, 1])
-
-with back_adj_col:
-    # Fonts are bundled in the repo's fonts/ folder (ArialRegular.ttf,
-    # PEPCO_Ovi.ttf) — loaded automatically, no upload needed.
-    arial_font_bytes = None
-    pictogram_font_bytes = None
-
-    st.subheader("Text fields (Collection / Colour_SKU / Style_Merch_Season / Batch)")
-    tf_rows = []
-    for col in ["Collection", "Colour_SKU", "Style_Merch_Season", "Batch"]:
-        cfg = back_mapping.get(col, DEFAULT_BACK_MAPPING[col])
-        tf_rows.append({"field": col, "x0": cfg["bbox"][0], "y0": cfg["bbox"][1],
-                         "x1": cfg["bbox"][2], "y1": cfg["bbox"][3], "fontsize": cfg["fontsize"]})
-    tf_df = pd.DataFrame(tf_rows)
-    edited_tf_df = st.data_editor(tf_df, use_container_width=True, num_rows="fixed", key="back_tf_editor")
-
-    for _, r in edited_tf_df.iterrows():
-        back_mapping[r["field"]] = {"bbox": [r["x0"], r["y0"], r["x1"], r["y1"]], "fontsize": r["fontsize"],
-                                     "font": "arial", "color": "black"}
-
-    st.subheader("Washing Code (pictogram)")
-    wc = back_mapping.get("washing_code", DEFAULT_BACK_MAPPING["washing_code"])
-    wc_x0 = st.number_input("wc x0", value=float(wc["bbox"][0]), key="wc_x0")
-    wc_y0 = st.number_input("wc y0", value=float(wc["bbox"][1]), key="wc_y0")
-    wc_x1 = st.number_input("wc x1", value=float(wc["bbox"][2]), key="wc_x1")
-    wc_y1 = st.number_input("wc y1", value=float(wc["bbox"][3]), key="wc_y1")
-    wc_fs = st.number_input("wc fontsize", value=float(wc["fontsize"]), step=0.1, key="wc_fs")
-    back_mapping["washing_code"] = {"bbox": [wc_x0, wc_y0, wc_x1, wc_y1], "fontsize": wc_fs,
-                                     "font": "pictogram", "color": "pink"}
-
-    st.subheader("Cotton (pictogram)")
-    ct = back_mapping.get("Cotton", DEFAULT_BACK_MAPPING["Cotton"])
-    ct_x0 = st.number_input("cotton x0", value=float(ct["bbox"][0]), key="ct_x0")
-    ct_y0 = st.number_input("cotton y0", value=float(ct["bbox"][1]), key="ct_y0")
-    ct_x1 = st.number_input("cotton x1", value=float(ct["bbox"][2]), key="ct_x1")
-    ct_y1 = st.number_input("cotton y1", value=float(ct["bbox"][3]), key="ct_y1")
-    ct_fs = st.number_input("cotton fontsize", value=float(ct["fontsize"]), step=0.1, key="ct_fs")
-    back_mapping["Cotton"] = {"bbox": [ct_x0, ct_y0, ct_x1, ct_y1], "fontsize": ct_fs,
-                               "font": "pictogram", "color": "pink"}
-
-    st.subheader("Barcode")
-    bc = back_mapping.get("barcode", DEFAULT_BACK_MAPPING["barcode"])
-    bc_x0 = st.number_input("barcode x0", value=float(bc["x0"]), key="bc_x0")
-    bc_x1 = st.number_input("barcode x1", value=float(bc["x1"]), key="bc_x1")
-    bc_dy0 = st.number_input("digits y0", value=float(bc["digits_y0"]), key="bc_dy0")
-    bc_dy1 = st.number_input("digits y1", value=float(bc["digits_y1"]), key="bc_dy1")
-    bc_height = st.number_input("bars height", value=float(bc["bars_height"]), key="bc_height")
-    bc_dfs = st.number_input("digits fontsize", value=float(bc["digits_fontsize"]), step=0.1, key="bc_dfs")
-    back_mapping["barcode"] = {"x0": bc_x0, "x1": bc_x1, "digits_y0": bc_dy0, "digits_y1": bc_dy1,
-                                "bars_height": bc_height, "digits_fontsize": bc_dfs, "color": "pink"}
-
-    st.download_button(
-        "⬇️ Download Updated hangtag_back_mapping.json",
-        data=json.dumps(back_mapping, indent=2, ensure_ascii=False),
-        file_name="hangtag_back_mapping.json",
-        mime="application/json",
-        key="back_json_dl",
-    )
-    st.caption("Download kore GitHub-e config/hangtag_back_mapping.json file ta replace koro.")
-
-with back_prev_col:
-    st.subheader("Preview")
-    try:
-        doc = hb.fill_back_side(back_preview_row, mapping=back_mapping,
-                                 arial_font_bytes=arial_font_bytes,
-                                 pictogram_font_bytes=pictogram_font_bytes)
-        pix = doc[0].get_pixmap(dpi=200)
-        img_bytes = pix.tobytes("png")
-        doc.close()
-        st.image(img_bytes, use_container_width=True)
-    except FileNotFoundError:
-        st.error("templates/Hangtag/back_side.pdf paoa jayni — template file ta repo-te rakho.")
-    except Exception as e:
-        st.error(f"Preview generate korte giye error: {e}")
-
-st.divider()
-st.caption(f"Generated on {datetime.today().strftime('%d-%m-%Y')} · Hangtag Front+Back v0.4 (live adjustor)")
-
-# ----------------------------------------------------------------
-# 7) Generate Pad (bulk) — Front + 7x Back + header, composited
-# ----------------------------------------------------------------
-st.header("7. Generate Pad (Front + Back × N + Header)")
-pcol1, pcol2 = st.columns(2)
-with pcol1:
-    if st.button("📄 Generate ONE combined PDF (all rows) — Pad", type="primary"):
+    if st.button("📄 Download combined PDF (all Pads)", type="primary"):
         try:
             pdf_bytes = hp.generate_batch_pdf(rows)
             fname = f"Hangtag_Pad_{rows[0].get('Order_ID','batch')}_{datetime.today().strftime('%d%m%Y')}.pdf"
-            st.download_button("⬇️ Download combined PDF", data=pdf_bytes, file_name=fname,
-                                mime="application/pdf", key="pad_combined_dl")
-        except FileNotFoundError:
-            st.error("templates/Hangtag/pad.pdf paoa jayni — template file ta repo-te rakho.")
+            st.download_button("⬇️ Download PDF", data=pdf_bytes, file_name=fname,
+                                mime="application/pdf", key="combined_dl")
+        except FileNotFoundError as e:
+            st.error(f"Template/font file paoa jayni: {e}")
         except Exception as e:
             st.error(f"Generate korte giye error: {e}")
-with pcol2:
-    if st.button("📑 Generate SEPARATE PDF per row — Pad"):
+
+with col2:
+    if st.button("📑 Download SEPARATE PDF per Pad"):
         try:
             pdfs = hp.generate_batch(rows)
             st.success(f"{len(pdfs)} ta Pad PDF ready.")
-            for i, (row, pdf_bytes) in enumerate(zip(rows, pdfs), start=1):
-                fname = f"Hangtag_Pad_{row.get('Order_ID','row')}_{i}.pdf"
+            for i, pdf_bytes in enumerate(pdfs, start=1):
+                fname = f"Hangtag_Pad_{i}_{datetime.today().strftime('%d%m%Y')}.pdf"
                 st.download_button(f"⬇️ {fname}", data=pdf_bytes, file_name=fname,
-                                    mime="application/pdf", key=f"pad_dl_{i}")
-        except FileNotFoundError:
-            st.error("templates/Hangtag/pad.pdf paoa jayni — template file ta repo-te rakho.")
+                                    mime="application/pdf", key=f"dl_{i}")
+        except FileNotFoundError as e:
+            st.error(f"Template/font file paoa jayni: {e}")
         except Exception as e:
             st.error(f"Generate korte giye error: {e}")
 
-# ----------------------------------------------------------------
-# 8) Pad — Live Preview + Header Position Adjustor
-# ----------------------------------------------------------------
-st.header("8. 🎯 Live Preview & Header Adjustor — Pad")
-
-DEFAULT_PAD_MAPPING = {
-    "front_rect": [55.2, 225.5, 185.6, 551.5],
-    "back_rects": [
-        [189.2, 225.5, 319.6, 551.5], [325.3, 225.5, 455.7, 551.5],
-        [461.4, 225.5, 591.7, 551.5], [597.4, 225.5, 727.8, 551.5],
-        [733.5, 225.5, 863.9, 551.5], [869.5, 225.5, 999.9, 551.5],
-        [1005.6, 225.5, 1136.0, 551.5],
-    ],
-    "header": [
-        {"name": "Order_ID", "type": "text", "x": 97, "y": 132, "font_size": 9, "font": "tahoma", "prefix": ""},
-        {"name": "Style", "type": "text", "x": 99, "y": 147, "font_size": 9, "font": "tahoma", "prefix": ""},
-        {"name": "Supplier_product_code", "type": "text", "x": 97, "y": 162, "font_size": 9, "font": "tahoma", "prefix": ""},
-        {"name": "Colour", "type": "text", "x": 97, "y": 177, "font_size": 9, "font": "tahoma", "prefix": ""},
-        {"name": "Size", "type": "text", "x": 32, "y": 192, "font_size": 9, "font": "tahoma", "prefix": "SIZE               :  "},
-        {"name": "today_date", "type": "text", "x": 472, "y": 51, "font_size": 9, "font": "tahoma", "prefix": ""},
-        {"name": "Item_classification", "type": "text", "x": 606, "y": 86, "font_size": 8, "font": "tahoma", "prefix": ""},
-        {"name": "Supplier_name", "type": "text", "x": 606, "y": 98, "font_size": 8, "font": "tahoma", "prefix": ""},
-        {"name": "Designer", "type": "text", "x": 472, "y": 74, "font_size": 8, "font": "tahoma", "prefix": ""},
-    ],
-}
-
-if "pad_mapping" not in st.session_state or not isinstance(st.session_state.pad_mapping.get("header"), list):
-    try:
-        st.session_state.pad_mapping = hp.load_mapping()
-    except Exception:
-        st.session_state.pad_mapping = DEFAULT_PAD_MAPPING
-
-pad_mapping = st.session_state.pad_mapping
-
-pad_preview_idx = st.selectbox("Preview korার jonno row select koro (Pad)", options=list(range(len(rows))),
-                                format_func=lambda i: f"Row {i+1} — {rows[i].get('Order_ID','')}",
-                                key="pad_preview_idx")
-pad_preview_row = rows[pad_preview_idx]
-
-pad_adj_col, pad_prev_col = st.columns([1, 1])
-
-with pad_adj_col:
-    st.subheader("Header fields")
-    hdr_df = pd.DataFrame(pad_mapping.get("header", []))
-    edited_hdr_df = st.data_editor(hdr_df, use_container_width=True, num_rows="fixed", key="pad_hdr_editor")
-    pad_mapping["header"] = edited_hdr_df.to_dict(orient="records")
-
-    st.caption("Header font is Tahoma (fonts/Tahoma.ttf, bundled — no upload needed). "
-               "Front/Back slot rectangles (front_rect / back_rects) are shared structural "
-               "positions — change only if the Pad template's box layout itself changes.")
-
-    st.download_button(
-        "⬇️ Download Updated hangtag_pad_mapping.json",
-        data=json.dumps(pad_mapping, indent=2, ensure_ascii=False),
-        file_name="hangtag_pad_mapping.json",
-        mime="application/json",
-        key="pad_json_dl",
-    )
-    st.caption("Download kore GitHub-e config/hangtag_pad_mapping.json file ta replace koro.")
-
-with pad_prev_col:
-    st.subheader("Preview")
-    try:
-        pad_bytes_preview = hp.generate_pad(pad_preview_row, mapping=pad_mapping)
-        pad_doc_preview = fitz.open("pdf", pad_bytes_preview)
-        pix = pad_doc_preview[0].get_pixmap(dpi=150)
-        img_bytes = pix.tobytes("png")
-        pad_doc_preview.close()
-        st.image(img_bytes, use_container_width=True)
-    except FileNotFoundError:
-        st.error("templates/Hangtag/pad.pdf paoa jayni — template file ta repo-te rakho.")
-    except Exception as e:
-        st.error(f"Preview generate korte giye error: {e}")
-
 st.divider()
-st.caption(f"Generated on {datetime.today().strftime('%d-%m-%Y')} · Hangtag Front+Back+Pad v0.5 (live adjustor)")
+st.caption(f"Generated on {datetime.today().strftime('%d-%m-%Y')} · Hangtag Generator v1.0")
