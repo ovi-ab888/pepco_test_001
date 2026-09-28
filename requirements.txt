@@ -6,3 +6,4 @@ pymupdf
 qrcode
 python-barcode
 pillow
+requests
