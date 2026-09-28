@@ -18,7 +18,7 @@
     "prefix": ""
   },
   {
-    "name": "TC_Number_st1",
+    "name": "TC_Number_st",
     "type": "text",
     "x": 82.0,
     "y": 84.0,
@@ -27,7 +27,7 @@
     "prefix": ""
   },
   {
-    "name": "Barcode_st1",
+    "name": "Barcode_st",
     "type": "barcode",
     "x": 19.0,
     "y": 100.0,
@@ -38,7 +38,7 @@
     "guard_extra": 1.15
   },
   {
-    "name": "Barcode_st1",
+    "name": "Barcode_st",
     "type": "text",
     "x": 73.0,
     "y": 221.0,
