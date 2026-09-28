@@ -31,6 +31,7 @@ import labels.benefite as benefite_label
 import labels.size_tag as size_tag_label
 import labels.hangtag_pad as hangtag_pad  # <-- NEW: Hangtag (Front+Back+Pad, own CSV data)
 import extractor
+from enrichment.enrich import enrich_dataframe
 
 theme.main_header("PEPCO Label Automation", "Upload PEPCO order/PO PDF and generate labels effortlessly.")
 
@@ -43,7 +44,7 @@ if "uploader_key" not in st.session_state:
 
 def _reset_all():
     for k in list(st.session_state.keys()):
-        if k.startswith(("pdf_", "chk_", "size_tag_", "include_size_tag", "hangtag_", "care_", "benefite_")):
+        if k.startswith(("pdf_", "chk_", "size_tag_", "include_size_tag", "hangtag_", "care_", "benefite_", "ui_", "cc_")):
             st.session_state.pop(k, None)
     st.session_state.uploader_key += 1
 
@@ -74,16 +75,21 @@ if (
         st.stop()
     extracted_df["Designer"] = auth.get_display_name()  # from the logged-in user, editable below
     st.session_state["pdf_filename_row"] = extracted_df.iloc[0].to_dict()
-    st.session_state["pdf_extracted_df"] = extracted_df.drop(columns=["_temp_sku_for_filename"])
+    st.session_state["pdf_pl_price"] = extracted_df["_pl_price_detected"].iloc[0]
+    st.session_state["pdf_extracted_df"] = extracted_df.drop(columns=["_temp_sku_for_filename", "_pl_price_detected"])
     st.session_state["pdf_uploader_names"] = [f.name for f in pdf_files]
 
 # -------------------------------
 # 3. ডেটা এডিটর
 # -------------------------------
+enriched_df = enrich_dataframe(
+    st.session_state["pdf_extracted_df"], st.session_state.get("pdf_pl_price", "")
+)
+
 st.subheader("Review & correct extracted data")
 st.caption("Every field is editable — fix anything the extractor got wrong.")
 corrected_df = st.data_editor(
-    st.session_state["pdf_extracted_df"],
+    enriched_df,
     use_container_width=True,
     num_rows="fixed",
     key="pdf_data_editor",
