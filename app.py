@@ -95,6 +95,18 @@ corrected_df = st.data_editor(
     key="pdf_data_editor",
 )
 
+def _order_rows(rows: list) -> list:
+    """Order-level label (Benefite, Size Tag ...) ekta-i hoy, row-wise na.
+    1st row-ke base kore "Sizes" = shob row-er size ek-sathe (XS, S, M, L, XL)."""
+    if not rows:
+        return rows
+    sizes = [str(r.get("Sizes", "")).strip() for r in rows]
+    joined = ", ".join(dict.fromkeys(s for s in sizes if s))
+    base = dict(rows[0])
+    base["Sizes"] = joined
+    return [base]
+
+
 # -------------------------------
 # 4. লেবেল টাইপ সিলেক্ট ও জেনারেশন
 # -------------------------------
@@ -107,6 +119,7 @@ label_options = {
     "Inner & Outer Sticker": {
         "generate": pad_label.generate_batch,
         "template_path": getattr(pad_label, "TEMPLATE_PATH", None),
+        "per_row": True,  # 1 row (1 size) = 1 page
     },
 }
 
@@ -160,7 +173,7 @@ with st.expander("Benefite Tag and Sticker", expanded=True):
                 with st.expander(f"🔎 Debug: {sticker_type} picks", expanded=True):
                     variants = benefite_label.list_variants(sticker_type)
                     st.caption("Available files: " + ", ".join(variants))
-                    for r in corrected_df.to_dict(orient="records"):
+                    for r in _order_rows(corrected_df.to_dict(orient="records")):
                         picked = benefite_label.pick_variant_for_row(sticker_type, r)
                         st.caption(f"[{sticker_type}] Sizes: {r.get('Sizes')} → picked: {picked}")
             continue
@@ -270,7 +283,8 @@ if selected_labels and st.button("Generate Selected Labels", type="primary"):
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             for label_name in selected_labels:
                 entry = label_options[label_name]
-                pdf_bytes = entry["generate"](rows)
+                label_rows = rows if entry.get("per_row") else _order_rows(rows)
+                pdf_bytes = entry["generate"](label_rows)
 
                 template_name = _template_name_for(entry)
                 final_filename = extractor.build_filename(
