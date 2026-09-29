@@ -59,19 +59,33 @@ def _generate_one_page(row: dict) -> bytes:
     return out
 
 
+def _has_tc(row: dict) -> bool:
+    """Row-e TC number ba Barcode thakle sheta ekta sticker page."""
+    return bool(str(row.get("TC_Number_st", "")).strip() or str(row.get("Barcode_st", "")).strip())
+
+
 def generate_single(row: dict) -> bytes:
-    """row = ekta row (1 size). TC_Number_st / Barcode_st / Sizes ei row-er
-    nijer value — tai 1 row = 1 page."""
+    """Ekta row = ekta page. (Size line dekhano hobe kina, generate_batch thik kore.)"""
     return _generate_one_page(row)
 
 
 def generate_batch(rows: list) -> bytes:
-    """rows = list of row dicts (1 row = 1 size). Returns one merged
-    multi-page PDF, ek row = ek page."""
+    """rows = list of row dicts (1 row = 1 size).
+
+    - Page-er songkha = TC_Number_st (ba Barcode_st) ache emon row-er songkha.
+      TC ekta hole 1 page, ekadhik hole ekadhik page. Kono row-e TC na thakle
+      1st row-i 1 page hishebe jay.
+    - 1 page hole "SIZE : ..." line thakbe na; ekadhik page hole proti page-e
+      tar nijer size dekhabe.
+    """
+    pages = [r for r in rows if _has_tc(r)] or list(rows[:1])
+
     merged = fitz.open()
-    for row in rows:
-        single_bytes = generate_single(row)
-        single_doc = fitz.open("pdf", single_bytes)
+    for row in pages:
+        row = dict(row)
+        if len(pages) == 1:
+            row.pop("Sizes", None)   # key na thakle engine "SIZE :" likhe na
+        single_doc = fitz.open("pdf", generate_single(row))
         merged.insert_pdf(single_doc)
         single_doc.close()
     out = merged.tobytes()
