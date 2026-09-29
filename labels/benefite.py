@@ -234,16 +234,24 @@ def load_field_config() -> list:
         return json.load(f)
 
 
+def _without_sizes(row: dict) -> dict:
+    """Benefite label-e "SIZE : ..." line lagbe na — Sizes key bad dile engine
+    oi field skip kore. (Variant bachte Sizes ekhono pick_variant_for_row-te lage.)"""
+    r = dict(row)
+    r.pop("Sizes", None)
+    return r
+
+
 def generate_single(row: dict, template_path: str) -> bytes:
     field_config = load_field_config()
-    return fill_single_label(template_path, row, field_config)
+    return fill_single_label(template_path, _without_sizes(row), field_config)
 
 
 def generate_batch(rows: list, template_path: str) -> bytes:
     """rows = list of Excel row dicts. template_path = the specific PDF
     chosen via the sticker-type/variant selection (use get_template_path())."""
     field_config = load_field_config()
-    return generate_multipage_pdf(template_path, rows, field_config)
+    return generate_multipage_pdf(template_path, [_without_sizes(r) for r in rows], field_config)
 
 
 def generate_batch_auto_size(rows: list, sticker_type: str) -> bytes:
@@ -257,7 +265,7 @@ def generate_batch_auto_size(rows: list, sticker_type: str) -> bytes:
         if not variant:
             continue
         template_path = get_template_path(sticker_type, variant)
-        single_bytes = fill_single_label(template_path, row, field_config)
+        single_bytes = fill_single_label(template_path, _without_sizes(row), field_config)
         single_doc = fitz.open("pdf", single_bytes)
         merged.insert_pdf(single_doc)
         single_doc.close()
