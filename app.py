@@ -29,7 +29,7 @@ import labels.inner_label as inner_label
 import labels.outer_label as outer_label
 import labels.benefite as benefite_label
 import labels.size_tag as size_tag_label
-import labels.hangtag_pad as hangtag_pad  # <-- NEW: Hangtag (Front+Back+Pad, own CSV data)
+import labels.hangtag_pad as hangtag_pad  # Hangtag (Front+Back+Pad) — table theke data
 import extractor
 from enrichment.enrich import enrich_dataframe
 
@@ -230,40 +230,25 @@ with st.expander("Size Tag", expanded=False):
             }
             selected_labels.append(size_tag_key)
 
-# ---- Section 3: Hangtag (LIVE — own CSV data, but joins the same ZIP flow) ----
-# Hangtag needs richer per-row data (product_name in 21 languages, price
-# ladder, Collection, Colour_SKU, Batch, barcode, washing_code, Cotton)
-# that the shared PDF extractor above doesn't produce, so it has its own
-# CSV upload here — but "Generate Hangtag" still joins the same
-# selected_labels / ZIP / "Generate Selected Labels" flow as everything else.
+# ---- Section 3: Hangtag (upor-er editable table theke shorashori data ney) ----
+# Ager moto alada CSV upload lagbe na — "Additional Data" + PDF theke ashe
+# product_name (21 language), price, Collection, Colour_SKU, Batch, barcode,
+# washing_code, Cotton shob ekhon ei table-e-i ache.
 with st.expander("Hangtag", expanded=False):
-    st.link_button("📥 Get Data", "https://pepco-ss27-ovi.streamlit.app/?embed=true")
+    hangtag_rows = corrected_df.fillna("").to_dict(orient="records")
+    _missing = [c for c in ("product_name", "PLN") if not any(str(r.get(c, "")).strip() for r in hangtag_rows)]
 
-    hangtag_csv = st.file_uploader("Hangtag Data CSV", type=["csv"], key="hangtag_csv_uploader")
+    if _missing:
+        st.info("Hangtag-er jonno 'Additional Data'-te Department/Product Type ar PLN Price din "
+                f"(ekhono khali: {', '.join(_missing)}).")
 
-    hangtag_rows = None
-    if hangtag_csv is not None:
-        try:
-            hangtag_df = pd.read_csv(hangtag_csv, sep=None, engine="python", encoding="utf-8-sig")
-        except Exception as e:
-            st.error(f"CSV porte giye error: {e}")
-            hangtag_df = None
-
-        if hangtag_df is not None and not hangtag_df.empty:
-            hangtag_edited_df = st.data_editor(
-                hangtag_df, use_container_width=True, num_rows="fixed", key="hangtag_data_editor"
-            )
-            hangtag_rows = hangtag_edited_df.fillna("").to_dict(orient="records")
-            if "Designer" not in hangtag_df.columns:
-                for r in hangtag_rows:
-                    r["Designer"] = auth.get_display_name()
-
-    include_hangtag = st.checkbox("Generate Hangtag", key="chk_hangtag", disabled=not hangtag_rows)
-    if include_hangtag and hangtag_rows:
+    include_hangtag = st.checkbox("Generate Hangtag", key="chk_hangtag", disabled=bool(_missing))
+    if include_hangtag and not _missing:
         label_options["Hangtag"] = {
-            "generate": lambda rows, hrows=hangtag_rows: hangtag_pad.generate_batch_pdf(hrows),
+            "generate": lambda rows: hangtag_pad.generate_batch_pdf(rows),
             "template_path": None,
             "template_name": "Hangtag",
+            "per_row": True,   # hangtag nijei row-gulo group kore
         }
         selected_labels.append("Hangtag")
 
@@ -274,7 +259,7 @@ with st.expander("Care Label", expanded=False):
     c2.selectbox("Select Washing Code", [""], key="care_washing", disabled=True)
 
 if selected_labels and st.button("Generate Selected Labels", type="primary"):
-    rows = corrected_df.to_dict(orient="records")
+    rows = corrected_df.fillna("").to_dict(orient="records")
     filename_row = dict(st.session_state.get("pdf_filename_row", {}))
     filename_row.update(rows[0])
 
