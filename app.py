@@ -5,6 +5,7 @@ sys.path.append(os.path.dirname(__file__))
 import streamlit as st
 import pandas as pd
 import io
+import csv
 import json
 import zipfile
 
@@ -94,6 +95,31 @@ corrected_df = st.data_editor(
     num_rows="fixed",
     key="pdf_data_editor",
 )
+
+
+def _build_table_csv_bytes(df) -> bytes:
+    buf = io.StringIO()
+    writer = csv.writer(buf, delimiter=";", quoting=csv.QUOTE_ALL)
+    writer.writerow(df.columns.tolist())
+    for row in df.itertuples(index=False):
+        writer.writerow(row)
+    return buf.getvalue().encode("utf-8-sig")
+
+
+def _build_table_csv_filename(df) -> str:
+    first = df.iloc[0].to_dict() if len(df) else {}
+    style = first.get("Style", "UNKNOWN")
+    order_id = first.get("Order_ID", "UNKNOWN")
+    return f"PEPCO_{style}_{order_id}_Data.csv"
+
+
+st.download_button(
+    "📥 Download CSV",
+    _build_table_csv_bytes(corrected_df),
+    file_name=_build_table_csv_filename(corrected_df),
+    mime="text/csv",
+)
+
 
 def _order_rows(rows: list) -> list:
     """Order-level label (Benefite, Size Tag ...) ekta-i hoy, row-wise na.
