@@ -1,358 +1,337 @@
-"""
-care_label.py
-==============
-PEPCO Care Label — Pad generator.
-
-One Pad page =
-    * N x "Front Part 1"  (one per size: cm_size, |PEPCO|, EAN, SKU, washing
-      code pictogram, then the START of the long Composition_Care text)
-    * 5 panels that carry the REST of the Composition_Care text, in this
-      reading order:
-          Front Part 1 (lower part) -> Back Part 1 -> Front Part 2
-          -> Back Part 2 -> Front Part 3 -> Back Part 3
-      (Composition_Care is one long text with blank lines used as vertical
-      gaps; it is wrapped with real Arial metrics and poured line by line
-      into the panels, exactly like the sample file.)
-
-Pad template choice (per group of sizes):
-      <= 6 sizes -> Care_Label_Pad.pdf     (6 Front Part 1 slots)
-      7-8 sizes  -> Care_Label_Pad 2.pdf   (8 Front Part 1 slots)
-      > 8 sizes  -> split into several Pad pages (8 per page)
-Unused Front Part 1 slots are simply left empty.
-
-Data columns used (from the editable table / CSV):
-    cm_size, barcode, SKU, washing_code, Composition_Care      <- label content
-    Order_ID, Style, Supplier_product_code, Colour, today_date,
-    Designer, Item_classification, Supplier_name               <- Pad header
-
-Repo structure needed:
-    labels/care_label.py                       (this file)
-    config/care_label_mapping.json
-    fonts/ArialRegular.ttf  fonts/ArialBold.ttf
-    fonts/PEPCO_Ovi.ttf     fonts/Tahoma.ttf
-    templates/Care label/   Front Side_part1.pdf, Front Side.pdf, Back Side.pdf,
-                            Care_Label_Pad.pdf, Care_Label_Pad 2.pdf
-    (template file names are matched ignoring case, spaces and underscores)
-"""
-
-import json
+import sys
 import os
+sys.path.append(os.path.dirname(__file__))
 
-import fitz  # PyMuPDF
+import streamlit as st
+import pandas as pd
+import io
+import csv
+import json
+import zipfile
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root
-CONFIG_PATH = os.path.join(BASE_DIR, "config", "care_label_mapping.json")
-TEMPLATES_ROOT = os.path.join(BASE_DIR, "templates")
-FONTS_DIR = os.path.join(BASE_DIR, "fonts")
+import theme
+import auth
 
-BLACK = (0, 0, 0, 1)  # CMYK K100, print-safe black (same as the other labels)
+# পেজ কনফিগারেশন
+st.set_page_config(page_title="PEPCO Label Automation", layout="wide")
+theme.load_css()  # login page-ও এই style পাবে
 
-REQUIRED_COLUMNS = ["cm_size", "barcode", "SKU", "washing_code", "Composition_Care"]
+# -------------------------------
+# 0. লগইন চেক (সবার আগে)
+# -------------------------------
+if not auth.check_login():
+    st.stop()
 
+auth.logout_button()
 
-class CareLabelOverflow(ValueError):
-    """Composition_Care is longer than the 6 text areas can hold."""
+# সব লেবেল জেনারেটর মডিউল ইমপোর্ট করুন
+import labels.pad_label as pad_label
+import labels.inner_label as inner_label
+import labels.outer_label as outer_label
+import labels.benefite as benefite_label
+import labels.size_tag as size_tag_label
+import labels.hangtag_pad as hangtag_pad  # Hangtag (Front+Back+Pad) — table theke data
+import labels.care_label as care_label  # Care Label (Front1 + Composition flow + Pad) — table theke data
+import extractor
+from enrichment.enrich import enrich_dataframe
 
+theme.main_header("PEPCO Label Automation", "Upload PEPCO order/PO PDF and generate labels effortlessly.")
 
-# --------------------------------------------------------------------------
-# helpers: config, file lookup, fonts
-# --------------------------------------------------------------------------
-def load_mapping(config_path=CONFIG_PATH):
-    with open(config_path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def _norm(name: str) -> str:
-    """'Front Side_part1.pdf' -> 'frontsidepart1' (ignore case/space/_/-/extension)."""
-    base = os.path.splitext(name)[0]
-    return "".join(ch for ch in base.lower() if ch.isalnum())
-
-
-def _find_templates_dir() -> str:
-    """templates/Care label  (also matches 'Care Label', 'Care_Label', ...)."""
-    for entry in os.listdir(TEMPLATES_ROOT):
-        full = os.path.join(TEMPLATES_ROOT, entry)
-        if os.path.isdir(full) and _norm(entry) == "carelabel":
-            return full
-    raise FileNotFoundError(f"templates/Care label folder not found under {TEMPLATES_ROOT}")
-
-
-def _find_template(key: str) -> str:
-    folder = _find_templates_dir()
-    for entry in os.listdir(folder):
-        if _norm(entry) == key and entry.lower().endswith(".pdf"):
-            return os.path.join(folder, entry)
-    raise FileNotFoundError(f"Care Label template '{key}' not found in {folder}")
+# -------------------------------
+# 1. ফাইল আপলোড সেকশন
+# -------------------------------
+if "uploader_key" not in st.session_state:
+    st.session_state.uploader_key = 0
 
 
-def _find_font(*candidates) -> str:
-    """Case-insensitive lookup of a font file in fonts/."""
-    wanted = {_norm(c) for c in candidates}
-    for entry in os.listdir(FONTS_DIR):
-        if entry.lower().endswith((".ttf", ".otf")) and _norm(entry) in wanted:
-            return os.path.join(FONTS_DIR, entry)
-    raise FileNotFoundError(f"Font {candidates} not found in {FONTS_DIR}")
+def _reset_all():
+    for k in list(st.session_state.keys()):
+        if k.startswith(("pdf_", "chk_", "size_tag_", "include_size_tag", "hangtag_", "care_", "benefite_", "ui_", "cc_")):
+            st.session_state.pop(k, None)
+    st.session_state.uploader_key += 1
 
 
-class _Fonts:
-    """Loads the 3 Care Label fonts once: measuring objects + file paths."""
+st.button("Upload New File", on_click=_reset_all)
 
-    def __init__(self):
-        self.files = {
-            "arial": _find_font("ArialRegular", "arial"),
-            "arialb": _find_font("ArialBold", "arialbd"),
-            "ovi": _find_font("PEPCO_Ovi"),
+pdf_files = st.file_uploader(
+    "Upload PEPCO PDF",
+    type=["pdf"],
+    accept_multiple_files=True,
+    key=f"pdf_uploader_{st.session_state.uploader_key}",
+)
+if not pdf_files:
+    st.info("Please upload a PDF to continue.")
+    st.stop()
+
+# -------------------------------
+# 2. ডেটা এক্সট্রাকশন
+# -------------------------------
+if (
+    "pdf_extracted_df" not in st.session_state
+    or st.session_state.get("pdf_uploader_names") != [f.name for f in pdf_files]
+):
+    with st.spinner("Extracting data from PDF..."):
+        extracted_df = extractor.extract_rows_from_pdfs(pdf_files)
+    if extracted_df.empty:
+        st.error("Couldn't extract data from this PDF — check it's the right file type.")
+        st.stop()
+    extracted_df["Designer"] = auth.get_display_name()  # from the logged-in user, editable below
+    st.session_state["pdf_filename_row"] = extracted_df.iloc[0].to_dict()
+    st.session_state["pdf_pl_price"] = extracted_df["_pl_price_detected"].iloc[0]
+    st.session_state["pdf_extracted_df"] = extracted_df.drop(columns=["_temp_sku_for_filename", "_pl_price_detected"])
+    st.session_state["pdf_uploader_names"] = [f.name for f in pdf_files]
+
+# -------------------------------
+# 3. ডেটা এডিটর
+# -------------------------------
+enriched_df = enrich_dataframe(
+    st.session_state["pdf_extracted_df"], st.session_state.get("pdf_pl_price", "")
+)
+
+st.subheader("Review & correct extracted data")
+st.caption("Every field is editable — fix anything the extractor got wrong.")
+corrected_df = st.data_editor(
+    enriched_df,
+    use_container_width=True,
+    num_rows="fixed",
+    key="pdf_data_editor",
+)
+
+
+def _build_table_csv_bytes(df) -> bytes:
+    buf = io.StringIO()
+    writer = csv.writer(buf, delimiter=";", quoting=csv.QUOTE_ALL)
+    writer.writerow(df.columns.tolist())
+    for row in df.itertuples(index=False):
+        writer.writerow(row)
+    return buf.getvalue().encode("utf-8-sig")
+
+
+def _build_table_csv_filename(df) -> str:
+    first = df.iloc[0].to_dict() if len(df) else {}
+    style = first.get("Style", "UNKNOWN")
+    order_id = first.get("Order_ID", "UNKNOWN")
+    return f"PEPCO_{style}_{order_id}_Data.csv"
+
+
+st.download_button(
+    "📥 Download CSV",
+    _build_table_csv_bytes(corrected_df),
+    file_name=_build_table_csv_filename(corrected_df),
+    mime="text/csv",
+)
+
+
+def _order_rows(rows: list) -> list:
+    """Order-level label (Benefite, Size Tag ...) ekta-i hoy, row-wise na.
+    1st row-ke base kore "Sizes" = shob row-er size ek-sathe (XS, S, M, L, XL)."""
+    if not rows:
+        return rows
+    sizes = [str(r.get("Sizes", "")).strip() for r in rows]
+    joined = ", ".join(dict.fromkeys(s for s in sizes if s))
+    base = dict(rows[0])
+    base["Sizes"] = joined
+    return [base]
+
+
+# -------------------------------
+# 4. লেবেল টাইপ সিলেক্ট ও জেনারেশন
+# -------------------------------
+st.subheader("Select Label Types to Generate")
+
+# name -> {"generate": callable(rows) -> pdf_bytes,
+#          "template_path": str or None,   (used to derive the filename's template-name part)
+#          "template_name": str or None}   (explicit override, e.g. for auto-size types with no single path)
+label_options = {
+    "Inner & Outer Sticker": {
+        "generate": pad_label.generate_batch,
+        "template_path": getattr(pad_label, "TEMPLATE_PATH", None),
+        "per_row": True,  # 1 row (1 size) = 1 page
+    },
+}
+
+FILENAME_MAPPING_PATH = os.path.join(os.path.dirname(__file__), "config", "filename_mapping.json")
+try:
+    with open(FILENAME_MAPPING_PATH, "r") as f:
+        FILENAME_MAPPING = json.load(f)
+except FileNotFoundError:
+    FILENAME_MAPPING = {}
+
+
+def _template_name_for(entry: dict) -> str:
+    """The name to use in the download filename for this label type.
+    Checks config/filename_mapping.json first (template filename / sticker
+    type -> desired download name); falls back to the raw template
+    filename (no extension) if there's no mapping entry."""
+    if entry.get("template_name"):
+        raw_name = entry["template_name"]
+    else:
+        path = entry.get("template_path")
+        raw_name = os.path.splitext(os.path.basename(path))[0] if path else "Sticker"
+    return FILENAME_MAPPING.get(raw_name, raw_name)
+
+
+selected_labels = []
+
+# ---- Section 1: Benefite Tag and Sticker (LIVE) ----
+with st.expander("Benefite Tag and Sticker", expanded=True):
+    if st.checkbox("Inner & Outer Sticker", key="chk_inner_outer"):
+        selected_labels.append("Inner & Outer Sticker")
+
+    sticker_types = benefite_label.list_sticker_types()
+    if not sticker_types:
+        st.caption("No other Benefite templates found yet in templates/Benefite/.")
+    for sticker_type in sticker_types:
+        if benefite_label.is_auto_size_type(sticker_type):
+            # one checkbox — the right variant is picked per-row automatically
+            # by matching each row's Sizes against the available filenames
+            checked = st.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
+            if checked:
+                label_options[sticker_type] = {
+                    "generate": lambda rows, st_=sticker_type: benefite_label.generate_batch_auto_size(rows, st_),
+                    "template_path": None,
+                    "template_name": sticker_type,
+                }
+                selected_labels.append(sticker_type)
+            continue
+
+        variants = benefite_label.list_variants(sticker_type)
+        if not variants:
+            continue
+
+        col1, col2 = st.columns([2, 2])
+        checked = col1.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
+        if len(variants) > 1:
+            sel_variant = col2.selectbox(
+                "Select variant", variants,
+                key=f"benefite_variant_{sticker_type}", label_visibility="collapsed",
+            )
+        else:
+            sel_variant = variants[0]
+
+        if checked:
+            template_path = benefite_label.get_template_path(sticker_type, sel_variant)
+            label_key = f"{sticker_type} ({sel_variant})" if len(variants) > 1 else sticker_type
+            label_options[label_key] = {
+                "generate": lambda rows, tp=template_path: benefite_label.generate_batch(rows, tp),
+                "template_path": template_path,
+            }
+            selected_labels.append(label_key)
+
+# ---- Section 2: Size Tag (LIVE) ----
+with st.expander("Size Tag", expanded=False):
+    size_types = size_tag_label.list_types()
+    if not size_types:
+        st.caption("No Size Tag templates found yet in templates/Sizetag/.")
+    else:
+        c1, c2, c3, c4 = st.columns(4)
+
+        sel_type = c1.selectbox("Select Type", size_types, key="size_tag_type")
+
+        departments = size_tag_label.list_departments(sel_type) if sel_type else []
+        sel_dept = c2.selectbox("Select Department", departments, key="size_tag_dept") if departments else None
+
+        customers = size_tag_label.list_customers(sel_type, sel_dept) if sel_dept else []
+        sel_cust = c3.selectbox("Select Customer", customers, key="size_tag_cust") if customers else None
+
+        sizes = size_tag_label.list_sizes(sel_type, sel_dept, sel_cust) if sel_cust else []
+        sel_size = c4.selectbox("Select Size", sizes, key="size_tag_size") if sizes else None
+
+        include_size_tag = st.checkbox("Generate Size Tag", key="include_size_tag", disabled=not sel_size)
+        if include_size_tag and sel_size:
+            template_path = size_tag_label.get_template_path(sel_type, sel_dept, sel_cust, sel_size)
+            size_tag_key = f"Size Tag ({sel_type}/{sel_dept}/{sel_cust}/{sel_size})"
+            label_options[size_tag_key] = {
+                "generate": lambda rows, tp=template_path: size_tag_label.generate_batch(rows, tp),
+                "template_path": template_path,
+            }
+            selected_labels.append(size_tag_key)
+
+# ---- Section 3: Hangtag (upor-er editable table theke shorashori data ney) ----
+# Ager moto alada CSV upload lagbe na — "Additional Data" + PDF theke ashe
+# product_name (21 language), price, Collection, Colour_SKU, Batch, barcode,
+# washing_code, Cotton shob ekhon ei table-e-i ache.
+with st.expander("Hangtag", expanded=False):
+    hangtag_rows = corrected_df.fillna("").to_dict(orient="records")
+    _missing = [c for c in ("product_name", "PLN") if not any(str(r.get(c, "")).strip() for r in hangtag_rows)]
+
+    if _missing:
+        st.info("Hangtag-er jonno 'Additional Data'-te Department/Product Type ar PLN Price din "
+                f"(ekhono khali: {', '.join(_missing)}).")
+
+    include_hangtag = st.checkbox("Generate Hangtag", key="chk_hangtag", disabled=bool(_missing))
+    if include_hangtag and not _missing:
+        label_options["Hangtag"] = {
+            "generate": lambda rows: hangtag_pad.generate_batch_pdf(rows),
+            "template_path": None,
+            "template_name": "Hangtag",
+            "per_row": True,   # hangtag nijei row-gulo group kore
         }
-        self.objs = {k: fitz.Font(fontfile=v) for k, v in self.files.items()}
+        selected_labels.append("Hangtag")
 
-    def register(self, page):
-        for key, path in self.files.items():
-            page.insert_font(fontname=key, fontfile=path)
+# ---- Section 4: Care Label (upor-er table theke data ney) ----
+# cm_size, barcode, SKU, washing_code, Composition_Care shob table-e-i ache,
+# tai alada Composition / Washing Code input lagbe na.
+with st.expander("Care Label", expanded=False):
+    care_rows = corrected_df.fillna("").to_dict(orient="records")
+    _care_missing = care_label.missing_columns(care_rows)
 
-    def width(self, key, text, size):
-        return self.objs[key].text_length(text, fontsize=size)
+    if _care_missing:
+        st.info("Care Label-er jonno table-e ei column-gulo lagbe (ekhono khali/nei): "
+                f"{', '.join(_care_missing)}")
 
+    include_care = st.checkbox("Generate Care Label", key="chk_care_label", disabled=bool(_care_missing))
+    if include_care and not _care_missing:
+        label_options["Care Label"] = {
+            "generate": lambda rows: care_label.generate_batch_pdf(rows),
+            "template_path": None,
+            "template_name": "Care Label",
+            "per_row": True,   # 1 row = 1 size; care_label nijei Pad-e group kore
+        }
+        selected_labels.append("Care Label")
 
-def _s(value) -> str:
-    """Cell -> clean string (NaN / None -> '')."""
-    if value is None or (isinstance(value, float) and value != value):
-        return ""
-    if hasattr(value, "strftime"):
-        return value.strftime("%d-%m-%Y")
-    s = str(value)
-    return "" if s.strip().lower() == "nan" else s
+if selected_labels and st.button("Generate Selected Labels", type="primary"):
+    rows = corrected_df.fillna("").to_dict(orient="records")
+    filename_row = dict(st.session_state.get("pdf_filename_row", {}))
+    filename_row.update(rows[0])
 
+    with st.spinner(f"Generating {len(selected_labels)} label type(s)..."):
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for label_name in selected_labels:
+                entry = label_options[label_name]
+                label_rows = rows if entry.get("per_row") else _order_rows(rows)
+                try:
+                    pdf_bytes = entry["generate"](label_rows)
+                except care_label.CareLabelOverflow as e:
+                    st.error(f"{label_name}: {e}")
+                    st.stop()
 
-# --------------------------------------------------------------------------
-# text flow
-# --------------------------------------------------------------------------
-def wrap_composition(text: str, fonts: _Fonts, size: float, width: float,
-                     wide_prefixes=(), wide_width: float = None) -> list:
-    """
-    Wrap Composition_Care into lines. Every '\\n' starts a new line; an empty
-    line stays an EMPTY string (= one blank line of vertical gap).
-    Paragraphs starting with one of `wide_prefixes` (e.g. "Skupljanje" - the
-    shrinkage line, which the sample prints on ONE line) may use the wider
-    `wide_width` if that keeps them on a single line.
-    """
-    lines = []
-    text = _s(text).replace("\r\n", "\n").replace("\r", "\n")
-    for para in text.split("\n"):
-        para = " ".join(para.split())
-        if not para:
-            lines.append("")
-            continue
-        if (wide_width and para.startswith(tuple(wide_prefixes))
-                and fonts.width("arial", para, size) <= wide_width):
-            lines.append(para)
-            continue
-        cur = ""
-        for word in para.split():
-            trial = f"{cur} {word}" if cur else word
-            if fonts.width("arial", trial, size) <= width:
-                cur = trial
-                continue
-            if cur:
-                lines.append(cur)
-                cur = ""
-            # a single word wider than the box -> hard-break by characters
-            while fonts.width("arial", word, size) > width and len(word) > 1:
-                cut = len(word) - 1
-                while cut > 1 and fonts.width("arial", word[:cut], size) > width:
-                    cut -= 1
-                lines.append(word[:cut])
-                word = word[cut:]
-            cur = word
-        if cur:
-            lines.append(cur)
-    return lines
+                template_name = _template_name_for(entry)
+                final_filename = extractor.build_filename(
+                    filename_row, extension="pdf", template_name=template_name
+                )
 
+                zip_file.writestr(final_filename, pdf_bytes)
+        zip_buffer.seek(0)
 
-def _capacity(first_baseline: float, last_baseline: float, pitch: float) -> int:
-    return int((last_baseline - first_baseline) / pitch + 1e-6) + 1
+    st.success(f"Done! {len(selected_labels)} label type(s) generated and packaged in a ZIP file.")
 
+    # ZIP filename = Supplier_product_code value
+    supplier_code = str(filename_row.get("Supplier_product_code", "UNKNOWN")).strip() or "UNKNOWN"
+    zip_name = f"{supplier_code}.zip"
 
-def flow_into_panels(lines: list, mapping: dict) -> dict:
-    """
-    Pour `lines` into front1 + the 5 panels in reading order.
-    Returns {"front1": [...], "back1": [...], ...}. Blank lines at the TOP of
-    a panel are dropped (a gap that lands on a panel edge must not push the
-    next text down). Raises CareLabelOverflow if text is left over.
-    """
-    comp = mapping["composition"]
-    pitch, last = comp["line_pitch"], comp["last_baseline"]
-    order = [("front1", comp["front1_first_baseline"])] + \
-            [(p["name"], p["first_baseline"]) for p in mapping["panels"]]
+    st.download_button(
+        "Download All Labels (ZIP)",
+        data=zip_buffer,
+        file_name=zip_name,
+        mime="application/zip",
+        use_container_width=True,
+    )
 
-    out, i = {}, 0
-    for name, first in order:
-        cap = _capacity(first, last, pitch)
-        while i < len(lines) and lines[i] == "":   # trim blank lines at panel top
-            i += 1
-        chunk = lines[i:i + cap]
-        out[name] = chunk
-        i += len(chunk)
-    rest = [ln for ln in lines[i:] if ln != ""]
-    if rest:
-        raise CareLabelOverflow(
-            f"Composition_Care is too long for the Care Label: {len(rest)}+ line(s) "
-            f"do not fit after Back Part 3. Shorten the composition text."
-        )
-    return out
-
-
-def _draw_lines(page, fonts, rect, first_baseline, lines, mapping):
-    comp = mapping["composition"]
-    size, pitch = comp["font_size"], comp["line_pitch"]
-    cx = (rect.x0 + rect.x1) / 2
-    for n, ln in enumerate(lines):
-        if not ln:
-            continue
-        w = fonts.width("arial", ln, size)
-        page.insert_text((cx - w / 2, rect.y0 + first_baseline + n * pitch), ln,
-                         fontsize=size, fontname="arial", color=BLACK)
-
-
-# --------------------------------------------------------------------------
-# drawing the pieces
-# --------------------------------------------------------------------------
-def _draw_front1_fields(page, fonts, rect, row, mapping):
-    ff = mapping["front_fields"]
-    cx = (rect.x0 + rect.x1) / 2
-    a, big, ovi = ff["arial_size"], ff["cm_size_font"], ff["ovi_size"]
-
-    def centered(text, font, size, baseline):
-        if not text:
-            return
-        w = fonts.width(font, text, size)
-        page.insert_text((cx - w / 2, rect.y0 + baseline), text, fontsize=size,
-                         fontname=font, color=BLACK)
-
-    centered(_s(row.get("cm_size")).strip(), "arialb", big, ff["cm_size_baseline"])
-    centered(ff.get("pepco_text", "|PEPCO|"), "arial", a, ff["pepco_baseline"])
-    barcode = _s(row.get("barcode")).strip()
-    centered(f"EAN: {barcode}" if barcode else "", "arial", a, ff["ean_baseline"])
-    sku = _s(row.get("SKU")).strip()
-    centered(f"SKU {sku}" if sku else "", "arialb", a, ff["sku_baseline"])
-    centered(_s(row.get("washing_code")).strip(), "ovi", ovi, ff["washing_baseline"])
-
-
-def _fill_pad_header(page, rows, mapping):
-    tahoma = None
-    try:
-        tahoma = _find_font("Tahoma")
-        page.insert_font(fontname="tahoma", fontfile=tahoma)
-    except FileNotFoundError:
-        pass
-    fontname = "tahoma" if tahoma else "helv"
-
-    for field in mapping.get("header", []):
-        vals = [_s(r.get(field["name"])).strip() for r in rows]
-        vals = [v for v in vals if v]
-        if not vals:
-            continue
-        sep = field.get("join_unique")
-        value = sep.join(dict.fromkeys(vals)) if sep else vals[0]
-        page.insert_text((field["x"], field["y"]), value, fontsize=field["font_size"],
-                         fontname=fontname, color=BLACK)
-
-
-def _show(page, rect, template_path):
-    src = fitz.open(template_path)
-    page.show_pdf_page(fitz.Rect(rect), src, 0)
-    src.close()
-
-
-# --------------------------------------------------------------------------
-# grouping + generation
-# --------------------------------------------------------------------------
-def group_rows_for_pads(rows: list, mapping: dict = None) -> list:
-    """
-    Consecutive rows with the same Composition_Care share a Pad (a different
-    composition always starts a new Pad), at most 8 sizes (the biggest Pad
-    template) per Pad page.
-    """
-    if mapping is None:
-        mapping = load_mapping()
-    biggest = max(p["max_units"] for p in mapping["pads"])
-    groups, cur, cur_key = [], [], None
-    for row in rows:
-        key = _s(row.get("Composition_Care")).strip()
-        if cur and (key != cur_key or len(cur) >= biggest):
-            groups.append(cur)
-            cur = []
-        cur.append(row)
-        cur_key = key
-    if cur:
-        groups.append(cur)
-    return groups
-
-
-def pick_pad_for_group(n_units: int, mapping: dict) -> dict:
-    """Smallest Pad template that has enough Front Part 1 slots."""
-    for pad in sorted(mapping["pads"], key=lambda p: p["max_units"]):
-        if n_units <= pad["max_units"]:
-            return pad
-    raise ValueError(f"No Care Label Pad template holds {n_units} sizes")
-
-
-def generate_pad_for_group(group_rows: list, mapping: dict = None, fonts: _Fonts = None) -> bytes:
-    """ONE Pad page (PDF bytes) for a group of rows (one row = one size)."""
-    if mapping is None:
-        mapping = load_mapping()
-    if not group_rows:
-        raise ValueError("group_rows is empty")
-    fonts = fonts or _Fonts()
-
-    pad_cfg = pick_pad_for_group(len(group_rows), mapping)
-    comp = mapping["composition"]
-    lines = wrap_composition(group_rows[0].get("Composition_Care", ""), fonts,
-                             comp["font_size"], comp["wrap_width"],
-                             comp.get("wide_prefixes", ()), comp.get("wide_width"))
-    flow = flow_into_panels(lines, mapping)   # may raise CareLabelOverflow
-
-    pad_doc = fitz.open(_find_template(pad_cfg["template"]))
-    page = pad_doc[0]
-    fonts.register(page)
-    _fill_pad_header(page, group_rows, mapping)
-
-    front1_tpl = _find_template(mapping["front1_template"])
-    for rect_coords, row in zip(pad_cfg["front_rects"], group_rows):
-        rect = fitz.Rect(rect_coords)
-        _show(page, rect, front1_tpl)
-        _draw_front1_fields(page, fonts, rect, row, mapping)
-        _draw_lines(page, fonts, rect, comp["front1_first_baseline"], flow["front1"], mapping)
-    # Front Part 1 slots with no size stay as the empty template box
-
-    for panel in mapping["panels"]:
-        rect = fitz.Rect(panel["rect"])
-        _show(page, rect, _find_template(panel["template"]))
-        _draw_lines(page, fonts, rect, panel["first_baseline"], flow[panel["name"]], mapping)
-
-    data = pad_doc.tobytes()
-    pad_doc.close()
-    return data
-
-
-def generate_batch(rows: list, config_path=CONFIG_PATH) -> list:
-    """List of Pad PDF bytes, one per group."""
-    mapping = load_mapping(config_path)
-    fonts = _Fonts()
-    return [generate_pad_for_group(g, mapping, fonts) for g in group_rows_for_pads(rows, mapping)]
-
-
-def generate_batch_pdf(rows: list, config_path=CONFIG_PATH) -> bytes:
-    """Same as generate_batch(), merged into ONE multi-page PDF."""
-    out = fitz.open()
-    for pad_bytes in generate_batch(rows, config_path):
-        src = fitz.open("pdf", pad_bytes)
-        out.insert_pdf(src)
-        src.close()
-    data = out.tobytes()
-    out.close()
-    return data
-
-
-def missing_columns(rows: list) -> list:
-    """Care Label columns that are absent or completely empty in the table."""
-    return [c for c in REQUIRED_COLUMNS if not any(_s(r.get(c)).strip() for r in rows)]
+st.markdown(
+    '<div class="footer-border" style="padding:14px 0; text-align:center; margin-top:1rem;">'
+    '<span class="footer-text">Developed by Ovi | All Rights Reserved. &copy; 2026 PEPCO Automation System</span>'
+    '</div>',
+    unsafe_allow_html=True,
+)
