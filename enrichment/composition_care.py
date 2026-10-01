@@ -94,7 +94,7 @@ def render_composition_care_section():
     comp_translations_df = load_component_translations()
 
     # ---------- Material Composition ----------
-    st.markdown("### 🧵 Material Composition (%) — Care Label")
+    st.markdown("### Material Composition %")
 
     materials_df = care_data.get("materials", pd.DataFrame())
 
@@ -111,7 +111,7 @@ def render_composition_care_section():
     if not component_options:
         component_options = ["Main fabric", "Outer fabric", "Lining", "Pocket bag", "Collar", "Cuff", "Rib"]
 
-    use_advanced_mode = st.toggle("🔧 Advanced Mode (Multiple Components)", value=False, key="cc_use_advanced_mode")
+    use_advanced_mode = st.toggle("Components Mode", value=False, key="cc_use_advanced_mode")
 
     if "cc_composition_blocks" not in st.session_state:
         st.session_state.cc_composition_blocks = []
@@ -120,7 +120,7 @@ def render_composition_care_section():
         st.session_state.cc_composition_blocks.append({
             "component_name": "Main fabric",
             "component_name_optional": "",
-            "materials": [{"mat": "", "pct": 0}]
+            "materials": [{"mat": "Cotton", "pct": 100}]  # default: 100% Cotton pre-selected
         })
 
     def get_material_all_languages(mat_name, pct):
@@ -284,7 +284,7 @@ def render_composition_care_section():
     final_composition_text = "\n\n".join(composition_lines)
 
     # ---------- Care Instructions ----------
-    st.markdown("### 🏷️ Care Instructions")
+    st.markdown("### Care Instructions")
 
     care_instructions_df = care_data.get("care_instructions", pd.DataFrame())
 
