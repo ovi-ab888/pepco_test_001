@@ -80,7 +80,7 @@ def enrich_dataframe(base_df: pd.DataFrame, detected_pl: str = "") -> pd.DataFra
     column shoho) return hoy — label generation kokhono block hoy na."""
     df = _add_new_naming_columns(base_df.copy())
 
-    with st.expander("➕ Additional Data (Department, Product, Washing, Price, Composition)", expanded=True):
+    with st.expander("➕ Additional Data", expanded=True):
         translations_df = load_product_translations()
         if translations_df.empty:
             st.warning("Product translation sheet load hoyni — notun column gulo (product_name, price ...) ekhon khali thakbe.")
