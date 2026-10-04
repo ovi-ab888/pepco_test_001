@@ -394,3 +394,39 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--text) !importa
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: var(--bg) !important; }
 ::-webkit-scrollbar-thumb { background: var(--muted) !important; border-radius: 10px; }
+
+
+/* ============================================================
+   11. v4 tweaks — stronger depth, Upload button emboss, compact header
+   ============================================================ */
+:root {
+  --bg:#2a2a2a; --surface:#2f2f2f; --well:#1a1a1a;
+  --hi:#474747; --lo:#0c0c0c;
+  --raise:    12px 12px 26px var(--lo), -9px -9px 20px var(--hi),
+              inset 1px 1px 0 rgba(255,255,255,0.10);
+  --raise-sm: 6px 6px 14px var(--lo), -4px -4px 11px var(--hi),
+              inset 1px 1px 0 rgba(255,255,255,0.10);
+  --inset:    inset 7px 7px 14px var(--lo), inset -5px -5px 10px var(--hi);
+  --face:     linear-gradient(145deg,#353535,#242424);
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg:#e2e2e2; --well:#d3d3d3; --hi:#ffffff; --lo:#a3a3a3; --face:linear-gradient(145deg,#efefef,#d9d9d9); }
+}
+
+/* Header: কম উচ্চতা */
+.main-header { padding: 1.2rem 2rem !important; margin: 0.5rem 0 1.5rem !important; }
+.main-header h1 { margin: 0.4rem 0 0 !important; }
+.main-header p  { margin: 0.4rem 0 0 !important; }
+
+/* Uploader-এর ভেতরের "Upload" বোতাম: নীলচে border বাদ, emboss */
+[data-testid="stFileUploaderDropzone"] button,
+[data-testid="stBaseButton-secondary"] {
+  background: var(--face) !important;
+  color: var(--text) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: var(--raise-sm) !important;
+}
+[data-testid="stFileUploaderDropzone"] button:active { box-shadow: var(--inset) !important; }
+[data-testid="stFileUploaderDropzone"] button p,
+[data-testid="stFileUploaderDropzone"] button span { color: var(--text) !important; }
