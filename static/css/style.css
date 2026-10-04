@@ -471,3 +471,76 @@ div[data-testid="stFormSubmitButton"] button p { color: var(--btn-fg) !important
 
 /* Alert: সাদা theme-এ গাঢ় লেখা */
 [data-testid="stAlert"], [data-testid="stAlert"] p, [data-testid="stAlert"] div { color: var(--text) !important; }
+
+
+/* ============================================================
+   13. White theme — Streamlit-এর নিজস্ব dark widget গুলো ঠিক করা
+   (select, file chip, expander bar, number/text input, dropdown popup)
+   ============================================================ */
+
+/* Selectbox / Multiselect: গর্ত + গাঢ় লেখা */
+[data-testid="stSelectbox"] [data-baseweb="select"] > div,
+[data-testid="stSelectbox"] [data-baseweb="select"] > div > div,
+[data-testid="stMultiSelect"] [data-baseweb="select"] > div {
+  background: var(--well) !important;
+  background-color: var(--well) !important;
+  color: var(--text) !important;
+  border-radius: 12px !important;
+}
+[data-baseweb="select"] input,
+[data-baseweb="select"] span,
+[data-baseweb="select"] div { color: var(--text) !important; }
+[data-baseweb="select"] svg { fill: var(--text) !important; }
+
+/* Dropdown popup list */
+[data-baseweb="popover"] > div,
+[data-baseweb="popover"] ul,
+[data-baseweb="menu"] {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--raise-sm) !important;
+}
+[data-baseweb="menu"] li, [data-baseweb="menu"] li * { background: transparent !important; color: var(--text) !important; }
+[data-baseweb="menu"] li:hover, [data-baseweb="menu"] li[aria-selected="true"] { background: var(--well) !important; }
+
+/* Text / Number input: লেখা সবসময় দেখা যাবে */
+.stTextInput input, .stNumberInput input, textarea {
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
+  background: transparent !important;
+}
+.stNumberInput div[data-baseweb="input"] {
+  background: var(--well) !important;
+  box-shadow: var(--inset) !important;
+  border-radius: 12px !important;
+}
+.stNumberInput button { background: transparent !important; color: var(--text) !important; box-shadow: none !important; }
+.stNumberInput button svg { fill: var(--text) !important; }
+
+/* Expander header bar: কালো বার বাদ */
+[data-testid="stExpander"] summary,
+[data-testid="stExpander"] summary *,
+[data-testid="stExpander"] details > summary {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--text) !important;
+}
+[data-testid="stExpander"] summary svg { fill: var(--text) !important; color: var(--text) !important; }
+
+/* Uploaded file chips: উঁচু সাদা chip */
+[data-testid="stFileUploaderFile"] {
+  background: var(--face) !important;
+  border-radius: 12px !important;
+  box-shadow: var(--raise-sm) !important;
+}
+[data-testid="stFileUploaderFile"] *,
+[data-testid="stFileUploaderFileName"],
+[data-testid="stFileUploaderFile"] small { color: var(--text) !important; }
+[data-testid="stFileUploaderFile"] svg { fill: var(--text) !important; }
+
+/* Toggle (লাল বাদ → কালো) */
+[data-testid="stToggle"] label > div:first-child,
+label[data-baseweb="checkbox"] > div:first-child { background-color: var(--well) !important; }
+[data-testid="stToggle"] input:checked + div,
+label[data-baseweb="checkbox"] input:checked + div { background-color: #1a1a1a !important; }
