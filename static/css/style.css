@@ -1,651 +1,222 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ============================================================
+   PEPCO Label Automation — Monochrome Emboss / Deboss Theme
+   One clean file (replaces old indigo theme + v1/v2/v3 patches)
+
+   EMBOSS (উঁচু)  = header, card, login box, expander, button
+   DEBOSS (গর্ত)  = input, select, uploader, table, alert
+
+   Tweak depth: only change the values inside :root below.
+   ============================================================ */
+
 * { font-family: 'Inter', sans-serif; }
 
-/* ===== DARK MODE (ডিফল্ট) ===== */
-.stApp {
-    background: #1a1a2e;
-}
-
-/* Dark Mode Text Colors */
-.stApp, .stApp p, .stApp div, .stApp span, .stApp label {
-    color: rgba(255,255,255,0.9) !important;
-}
-
-/* Dark Mode Cards */
-.main-header {
-    background: #23233f;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    padding: 2rem 2rem;
-    margin-bottom: 2rem;
-    text-align: center;
-    border-radius: 0;
-}
-.main-header h1 {
-    color: #8b93f8;
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin: 0;
-}
-.main-header p { color: rgba(255,255,255,0.7) !important; margin-top: 0.5rem; }
-
-.card {
-    background: #23233f;
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    border: 1px solid rgba(255,255,255,0.1);
-    transition: border-color 0.2s ease;
-}
-.card:hover { border-color: rgba(102,126,234,0.5); }
-.card-title {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: #8b93f8;
-    border-bottom: 2px solid #667eea;
-    display: inline-block;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-}
-
-/* Dark Mode Inputs */
-.stNumberInput input, .stTextInput input {
-    background: rgba(255,255,255,0.08) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
-    border-radius: 5px !important;
-    color: white !important;
-    padding: 0.5rem 1rem !important;
-}
-.stNumberInput input:focus, .stTextInput input:focus {
-    border-color: #667eea !important;
-    box-shadow: 0 0 0 2px rgba(102,126,234,0.2) !important;
-    background: rgba(255,255,255,0.12) !important;
-}
-
-/* Dark Mode Select/Radio */
-.stSelectbox label, .stNumberInput label, .stTextInput label, .stRadio label {
-    color: rgba(255,255,255,0.9) !important;
-}
-.stRadio div[role="radiogroup"] {
-    color: rgba(255,255,255,0.9) !important;
-}
-.stRadio div[role="radiogroup"] label {
-    color: rgba(255,255,255,0.9) !important;
-}
-
-/* Dark Mode Dataframe */
-.stDataFrame { background: rgba(255,255,255,0.05); border-radius: 16px; padding: 0.5rem; }
-.stDataFrame table { color: rgba(255,255,255,0.9) !important; }
-.stDataFrame thead tr th { background: rgba(102,126,234,0.2) !important; color: rgba(255,255,255,0.9) !important; }
-.stDataFrame tbody tr td { color: rgba(255,255,255,0.9) !important; }
-
-/* Dark Mode Alert */
-.stAlert { background: rgba(255,255,255,0.05) !important; }
-.stAlert p, .stAlert div { color: rgba(255,255,255,0.9) !important; }
-
-/* Dark Mode Expander */
-.stExpander { background: rgba(255,255,255,0.05) !important; border: 1px solid rgba(255,255,255,0.1) !important; }
-.stExpander summary { color: rgba(255,255,255,0.9) !important; }
-
-/* Dark Mode Tag */
-.tag-display {
-    background: rgba(102,126,234,0.12);
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid rgba(102,126,234,0.3);
-    color: #8b93f8;
-    font-weight: 600;
-    text-align: center;
-    font-size: 0.9rem;
-}
-
-/* Dark Mode Metric */
-.metric-card {
-    background: #23233f;
-    border-radius: 12px;
-    padding: 1rem;
-    color: white;
-    text-align: center;
-    border: 1px solid rgba(255,255,255,0.1);
-}
-.metric-value {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #8b93f8;
-}
-.metric-label { font-size: 0.85rem; color: rgba(255,255,255,0.7) !important; margin-top: 0.5rem; }
-
-/* Dark Mode Best Algo */
-.best-algo {
-    background: #1f7a5c;
-    border-radius: 12px;
-    padding: 1.5rem;
-    color: white;
-    text-align: center;
-    border: 1px solid rgba(255,255,255,0.1);
-    margin-bottom: 2rem;
-}
-.best-algo .metric-value { color: white; font-size: 1.5rem; }
-.best-algo .metric-label { color: rgba(255,255,255,0.9) !important; }
-
-/* Dark Mode Button */
-.stButton > button, .stDownloadButton button,
-div[data-testid="stFormSubmitButton"] button {
-    background: #5b6bd6 !important;
-    color: white !important;
-    border: none !important;
-    padding: 0.75rem 2rem !important;
-    font-weight: 600 !important;
-    border-radius: 8px !important;
-    width: 100% !important;
-    transition: background-color 0.2s ease !important;
-    font-size: 1rem !important;
-}
-.stButton > button:hover, .stDownloadButton button:hover,
-div[data-testid="stFormSubmitButton"] button:hover {
-    background: #4a5ac7 !important;
-}
-
-/* Dark Mode Warning/Info */
-.warning { background: rgba(255,193,7,0.1) !important; padding: 12px; border-radius: 8px; border-left: 4px solid #ffc107 !important; color: #ffc107 !important; margin: 1rem 0; }
-.info { background: rgba(23,162,184,0.1) !important; padding: 12px; border-radius: 8px; border-left: 4px solid #17a2b8 !important; color: #17a2b8 !important; }
-
-/* Dark Mode Scrollbar */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
-::-webkit-scrollbar-thumb { background: #667eea; border-radius: 10px; }
-
-/* Dark Mode Success/Info/Warning/Error */
-.stSuccess, .stInfo, .stWarning, .stError {
-    background: rgba(255,255,255,0.05) !important;
-}
-.stSuccess p, .stInfo p, .stWarning p, .stError p {
-    color: rgba(255,255,255,0.9) !important;
-}
-
-/* Dark Mode Column Headers in Manual Input */
-.stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
-    color: rgba(255,255,255,0.9) !important;
-}
-.stMarkdown strong, .stMarkdown b {
-    color: rgba(255,255,255,0.9) !important;
-}
-
-/* Footer Dark Mode */
-.footer-text { color: rgba(255,255,255,0.6) !important; }
-.footer-border { border-top: 1px solid rgba(102,126,234,0.3) !important; background: rgba(255,255,255,0.02) !important; }
-
-/* ===== LIGHT MODE ===== */
-@media (prefers-color-scheme: light) {
-    .stApp {
-        background: #f0f2f5;
-    }
-
-    /* Light Mode Text Colors - সব টেক্সট গাঢ় করা */
-    .stApp, .stApp p, .stApp div, .stApp span, .stApp label,
-    .stMarkdown, .stMarkdown p, .stMarkdown div, .stMarkdown span,
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4,
-    .stMarkdown strong, .stMarkdown b {
-        color: #1a1a3e !important;
-    }
-
-    /* Light Mode Header */
-    .main-header {
-        background: rgba(255,255,255,0.95) !important;
-        border-bottom: 1px solid rgba(0,0,0,0.1) !important;
-    }
-    .main-header p { color: rgba(0,0,0,0.7) !important; }
-    .main-header h1 {
-        color: #5b6bd6 !important;
-    }
-
-    /* Light Mode Cards */
-    .card {
-        background: white !important;
-        border: 1px solid rgba(0,0,0,0.08) !important;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.05) !important;
-    }
-    .card:hover { border-color: rgba(102,126,234,0.5) !important; }
-    .card-title {
-        color: #5b6bd6 !important;
-        border-bottom: 2px solid #667eea;
-    }
-
-    /* Light Mode Inputs */
-    .stNumberInput input, .stTextInput input {
-        background: white !important;
-        border: 1px solid rgba(0,0,0,0.2) !important;
-        color: #1a1a3e !important;
-    }
-    .stNumberInput input:focus, .stTextInput input:focus {
-        border-color: #667eea !important;
-        box-shadow: 0 0 0 2px rgba(102,126,234,0.2) !important;
-        background: white !important;
-    }
-
-    /* Light Mode Labels */
-    .stSelectbox label, .stNumberInput label, .stTextInput label, .stRadio label {
-        color: #1a1a3e !important;
-    }
-    .stRadio div[role="radiogroup"] {
-        color: #1a1a3e !important;
-    }
-    .stRadio div[role="radiogroup"] label {
-        color: #1a1a3e !important;
-    }
-
-    /* Light Mode Dataframe */
-    .stDataFrame { background: white !important; }
-    .stDataFrame table { color: #1a1a3e !important; }
-    .stDataFrame thead tr th { background: rgba(102,126,234,0.1) !important; color: #1a1a3e !important; }
-    .stDataFrame tbody tr td { color: #1a1a3e !important; }
-
-    /* Light Mode Alert */
-    .stAlert { background: white !important; }
-    .stAlert p, .stAlert div { color: #1a1a3e !important; }
-
-    /* Light Mode Expander */
-    .stExpander { background: white !important; border: 1px solid rgba(0,0,0,0.08) !important; }
-    .stExpander summary { color: #1a1a3e !important; }
-
-    /* Light Mode Tag */
-    .tag-display {
-        background: rgba(102,126,234,0.08) !important;
-        border: 1px solid rgba(102,126,234,0.3) !important;
-        color: #4a3f8a !important;
-    }
-
-    /* Light Mode Metric */
-    .metric-card {
-        background: white !important;
-        border: 1px solid rgba(0,0,0,0.08) !important;
-        color: #1a1a3e !important;
-    }
-    .metric-label { color: rgba(0,0,0,0.7) !important; }
-
-    /* Light Mode Best Algo */
-    .best-algo {
-        background: #1f7a5c !important;
-        color: white !important;
-    }
-    .best-algo .metric-value { color: white !important; }
-    .best-algo .metric-label { color: rgba(255,255,255,0.9) !important; }
-
-    /* Light Mode Button */
-    .stButton > button, .stDownloadButton button,
-    div[data-testid="stFormSubmitButton"] button {
-        background: #5b6bd6 !important;
-        color: white !important;
-    }
-    .stButton > button:hover, .stDownloadButton button:hover,
-div[data-testid="stFormSubmitButton"] button:hover {
-        background: #4a5ac7 !important;
-    }
-
-    /* Light Mode Warning/Info */
-    .warning { background: rgba(255,193,7,0.15) !important; color: #856404 !important; border-left: 4px solid #ffc107 !important; }
-    .info { background: rgba(23,162,184,0.15) !important; color: #0c5460 !important; border-left: 4px solid #17a2b8 !important; }
-
-    /* Light Mode Scrollbar */
-    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.05) !important; }
-    ::-webkit-scrollbar-thumb { background: #667eea !important; }
-
-    /* Light Mode Success/Info/Warning/Error */
-    .stSuccess { background: #d4edda !important; }
-    .stSuccess p { color: #155724 !important; }
-    .stInfo { background: #d1ecf1 !important; }
-    .stInfo p { color: #0c5460 !important; }
-    .stWarning { background: #fff3cd !important; }
-    .stWarning p { color: #856404 !important; }
-    .stError { background: #f8d7da !important; }
-    .stError p { color: #721c24 !important; }
-
-    /* Light Mode Column Headers */
-    .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
-        color: #1a1a3e !important;
-    }
-    .stMarkdown strong, .stMarkdown b {
-        color: #1a1a3e !important;
-    }
-
-    /* Light Mode Placeholder */
-    .stTextInput input::placeholder {
-        color: #999 !important;
-    }
-
-    /* Light Mode Success Message */
-    .stSuccess, .element-container div[data-testid="stAlert"] {
-        background: #d4edda !important;
-    }
-    .stSuccess p, .element-container div[data-testid="stAlert"] p {
-        color: #155724 !important;
-    }
-
-    /* Footer Light Mode */
-    .footer-text { color: rgba(0,0,0,0.6) !important; }
-    .footer-border { border-top: 1px solid rgba(102,126,234,0.3) !important; background: rgba(255,255,255,0.5) !important; }
-}
-
-
-/* ============================================================
-   PEPCO Label Automation — visual design update
-   Paste this at the END of static/css/style.css
-   Brand accent stays #667eea (same as your existing theme.py)
-   ============================================================ */
-
-/* ---------- 1. File uploader -> dashed indigo dropzone ---------- */
-[data-testid="stFileUploaderDropzone"] {
-    border: 1.5px dashed #667eea !important;
-    background: rgba(102, 126, 234, 0.06) !important;
-    border-radius: 12px !important;
-    transition: background 0.15s ease;
-}
-[data-testid="stFileUploaderDropzone"]:hover {
-    background: rgba(102, 126, 234, 0.1) !important;
-}
-[data-testid="stFileUploaderDropzone"] svg {
-    fill: #667eea !important;
-}
-
-/* ---------- 2. Data editor / correction table -> zebra rows ---------- */
-[data-testid="stDataFrame"] div[role="row"]:nth-child(even),
-[data-testid="stDataEditor"] div[role="row"]:nth-child(even) {
-    background: rgba(102, 126, 234, 0.04) !important;
-}
-[data-testid="stDataFrame"] div[role="columnheader"],
-[data-testid="stDataEditor"] div[role="columnheader"] {
-    font-weight: 500 !important;
-    color: #667eea !important;
-    background: rgba(102, 126, 234, 0.08) !important;
-}
-
-/* ---------- 3. Expander headers (label type sections) ---------- */
-[data-testid="stExpander"] summary,
-.streamlit-expanderHeader {
-    border-radius: 12px !important;
-    border: 0.5px solid rgba(102, 126, 234, 0.25) !important;
-    font-weight: 500 !important;
-}
-[data-testid="stExpander"] summary:hover {
-    background: rgba(102, 126, 234, 0.06) !important;
-}
-
-/* ---------- 4. Checkbox accent color (match indigo) ---------- */
-input[type="checkbox"] {
-    accent-color: #667eea !important;
-}
-
-/* ---------- 5. Badge / chip (use with render_badge() below) ---------- */
-.pepco-badge {
-    display: inline-block;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 3px 10px;
-    border-radius: 8px;
-    background: rgba(102, 126, 234, 0.1);
-    color: #667eea;
-    margin-left: 8px;
-}
-.pepco-badge.muted {
-    background: rgba(120, 120, 120, 0.12);
-    color: #888888;
-}
-
-/* ---------- 6. Step indicator (use with render_steps() below) ---------- */
-.pepco-steps {
-    display: flex;
-    gap: 6px;
-    justify-content: flex-end;
-    margin-bottom: 14px;
-}
-.pepco-step-circle {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    font-size: 11px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 0.5px solid rgba(120, 120, 120, 0.3);
-    color: #888888;
-}
-.pepco-step-circle.active {
-    background: #667eea;
-    color: #ffffff;
-    border: none;
-}
-
-/* ---------- 7. Primary action buttons (Generate / Download) ---------- */
-div[data-testid="stButton"] > button[kind="primary"],
-div[data-testid="stFormSubmitButton"] button[kind="primary"] {
-    background: #667eea !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 8px !important;
-}
-div[data-testid="stButton"] > button[kind="primary"]:hover {
-    background: #5568d3 !important;
-}
-
-/* ---------- 8. Labeled pill-tab progress bar (render_progress_tabs) ---------- */
-.pepco-tabs {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}
-.pepco-tab {
-    flex: 1;
-    min-width: 140px;
-    text-align: center;
-    padding: 10px 14px;
-    border-radius: 10px;
-    border: 1px solid rgba(120, 120, 120, 0.25);
-    color: rgba(255, 255, 255, 0.55);
-    font-size: 14px;
-    font-weight: 500;
-    background: rgba(255, 255, 255, 0.02);
-}
-.pepco-tab.active {
-    border: 1.5px solid #667eea;
-    color: #8b93f8;
-    background: rgba(102, 126, 234, 0.1);
-}
-
-/* ---------- 9. Bigger, friendlier upload dropzone ---------- */
-[data-testid="stFileUploaderDropzone"] {
-    padding: 2rem 1rem !important;
-    text-align: center !important;
-}
-[data-testid="stFileUploaderDropzoneInstructions"] {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 6px !important;
-}
-[data-testid="stFileUploaderDropzoneInstructions"] svg {
-    width: 32px !important;
-    height: 32px !important;
-    fill: #667eea !important;
-    margin-bottom: 4px;
-}
-[data-testid="stFileUploaderDropzoneInstructions"] span {
-    font-size: 14px !important;
-}
-[data-testid="stFileUploaderDropzoneInstructions"] small {
-    font-size: 12px !important;
-    color: rgba(255, 255, 255, 0.5) !important;
-}
-
-/* ---------- 10. Compact stage line (render_stage_line) ---------- */
-.pepco-stage-line {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 14px;
-}
-.pepco-dots {
-    display: flex;
-    align-items: center;
-}
-.pepco-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: rgba(120, 120, 120, 0.35);
-    display: inline-block;
-}
-.pepco-dot.done {
-    background: #667eea;
-}
-.pepco-dot.current {
-    background: #8b93f8;
-    width: 9px;
-    height: 9px;
-}
-.pepco-dot-line {
-    width: 16px;
-    height: 1px;
-    background: rgba(120, 120, 120, 0.35);
-    display: inline-block;
-}
-.pepco-dot-line.done {
-    background: #667eea;
-}
-.pepco-stage-text {
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.6);
-}
-
-/* ---------- 11. Big centered stage banner (render_stage_banner) ---------- */
-.pepco-stage-banner {
-    width: 100%;
-    text-align: center;
-    padding: 20px 16px;
-    margin-bottom: 20px;
-    border-radius: 14px;
-    border: 2px solid #667eea;
-    background: rgba(102, 126, 234, 0.1);
-    color: #ffffff;
-    font-size: 26px;
-    font-weight: 700;
-}
-
-
-/* ============================================================
-   PEPCO — Monochrome Emboss / Deboss Theme
-   Paste at the VERY END of style.css
-   ============================================================ */
-
-/* ---------- Design tokens (DARK = default) ---------- */
+/* ---------- 1. Design tokens (DARK = default) ---------- */
 :root {
-  --bg:      #151515;
-  --surface: #1c1c1c;
-  --text:    #ececec;
-  --muted:   #8c8c8c;
-  --hi:      #262626;   /* highlight edge */
-  --lo:      #0b0b0b;   /* shadow edge */
-  --line:    rgba(255,255,255,0.07);
-  --btn-bg:  #f2f2f2;
+  --bg:      #262626;   /* মাঝারি ধূসর: আলো-ছায়া দুটোই ফোটে */
+  --surface: #2b2b2b;
+  --well:    #1c1c1c;   /* deboss এর "গর্ত" */
+  --text:    #f0f0f0;
+  --muted:   #9a9a9a;
+  --hi:      #3f3f3f;   /* আলো */
+  --lo:      #101010;   /* ছায়া */
+  --line:    rgba(255,255,255,0.08);
+  --btn-bg:  linear-gradient(145deg,#ffffff,#d4d4d4);
   --btn-fg:  #111111;
-  --raise:   6px 6px 14px var(--lo), -6px -6px 14px var(--hi);
-  --raise-sm:3px 3px 8px var(--lo), -3px -3px 8px var(--hi);
-  --inset:   inset 3px 3px 7px var(--lo), inset -3px -3px 7px var(--hi);
+
+  --raise:    10px 10px 22px var(--lo), -8px -8px 18px var(--hi),
+              inset 1px 1px 0 rgba(255,255,255,0.08);
+  --raise-sm: 5px 5px 12px var(--lo), -4px -4px 10px var(--hi),
+              inset 1px 1px 0 rgba(255,255,255,0.08);
+  --inset:    inset 6px 6px 12px var(--lo), inset -4px -4px 9px var(--hi);
+  --face:     linear-gradient(145deg,#303030,#232323);   /* উঁচু জিনিসের মুখ */
 }
 
-/* ---------- LIGHT mode tokens ---------- */
+/* ---------- 2. LIGHT mode tokens ---------- */
 @media (prefers-color-scheme: light) {
   :root {
-    --bg:      #e6e6e6;
-    --surface: #e6e6e6;
-    --text:    #1a1a1a;
-    --muted:   #6f6f6f;
-    --hi:      #ffffff;
-    --lo:      #c2c2c2;
-    --line:    rgba(0,0,0,0.08);
-    --btn-bg:  #151515;
-    --btn-fg:  #f5f5f5;
+    --bg:#e2e2e2; --surface:#e2e2e2; --well:#d6d6d6;
+    --text:#1a1a1a; --muted:#6a6a6a;
+    --hi:#ffffff; --lo:#a9a9a9; --line:rgba(0,0,0,0.1);
+    --btn-bg:linear-gradient(145deg,#2a2a2a,#0e0e0e); --btn-fg:#f5f5f5;
+    --raise:    10px 10px 22px var(--lo), -10px -10px 22px var(--hi);
+    --raise-sm: 5px 5px 12px var(--lo), -5px -5px 12px var(--hi);
+    --inset:    inset 6px 6px 12px var(--lo), inset -6px -6px 12px var(--hi);
+    --face:     linear-gradient(145deg,#ececec,#d8d8d8);
   }
 }
 
-/* ---------- Base ---------- */
+/* ---------- 3. Base ---------- */
 .stApp { background: var(--bg) !important; }
+
 .stApp, .stApp p, .stApp div, .stApp span, .stApp label,
-.stMarkdown, .stMarkdown p, .stMarkdown strong, .stMarkdown b,
+.stMarkdown, .stMarkdown p, .stMarkdown span, .stMarkdown strong, .stMarkdown b,
 .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
   color: var(--text) !important;
 }
 [data-testid="stHeader"] { background: transparent !important; }
 [data-testid="stCaptionContainer"], .stCaption, small { color: var(--muted) !important; }
 
-/* Letterpress (deboss) headings */
-.stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .card-title {
+/* Labels */
+.stSelectbox label, .stNumberInput label, .stTextInput label, .stRadio label,
+.stRadio div[role="radiogroup"], .stRadio div[role="radiogroup"] label {
+  color: var(--text) !important;
+}
+
+/* ---------- 4. Headings (letterpress + clear hierarchy) ---------- */
+.stMarkdown h1, [data-testid="stHeading"] h1 { font-size: 1.6rem !important; }
+.stMarkdown h2, [data-testid="stHeading"] h2 { font-size: 1.25rem !important; font-weight: 600 !important; }
+.stMarkdown h3, [data-testid="stHeading"] h3 {
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted) !important;
+}
+.stMarkdown h1, .stMarkdown h2, [data-testid="stHeading"] h1, [data-testid="stHeading"] h2 {
   letter-spacing: 0.02em;
-  font-weight: 700 !important;
+  font-weight: 700;
   text-shadow: 0 1px 0 var(--hi), 0 -1px 0 var(--lo);
 }
 
-/* ---------- Header (embossed plate) ---------- */
-.main-header {
-  background: var(--surface) !important;
+/* ============================================================
+   5. EMBOSS (উঁচু): header, card, login box, expander
+   ============================================================ */
+.main-header,
+.card,
+div[data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stExpander"] {
+  background: var(--face) !important;
   border: none !important;
-  border-radius: 20px !important;
   box-shadow: var(--raise) !important;
+}
+.main-header {
+  border-radius: 24px !important;
+  border-top: 1px solid rgba(255,255,255,0.06) !important;
   margin: 0.5rem 0 2rem !important;
+  padding: 2rem !important;
+  text-align: center;
 }
 .main-header h1 {
   color: var(--text) !important;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   font-size: 1.9rem !important;
-  text-shadow: 0 1px 0 var(--hi), 0 -1px 0 var(--lo);
+  text-shadow: 0 2px 2px var(--lo), 0 -1px 0 var(--hi);
+  filter: grayscale(1);            /* 🔒 emoji ধূসর */
 }
-.main-header p { color: var(--muted) !important; letter-spacing: 0.04em; }
-.main-header img { filter: grayscale(1) contrast(1.05); }   /* logo B&W */
+.main-header p { color: var(--muted) !important; letter-spacing: 0.04em; margin-top: 0.5rem; }
+.main-header img { border-radius: 10px; box-shadow: var(--raise-sm); filter: grayscale(1) contrast(1.05); }
 
-/* ---------- Cards + login box (raised) ---------- */
-.card,
-div[data-testid="stVerticalBlockBorderWrapper"] {
-  background: var(--surface) !important;
-  border: none !important;
+.card {
   border-radius: 18px !important;
-  box-shadow: var(--raise) !important;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
 }
-.card-title { border-bottom: 1px solid var(--line) !important; color: var(--text) !important; }
+.card-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: inline-block;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line) !important;
+  color: var(--text) !important;
+}
+div[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 18px !important; }
 
-/* ---------- Inputs (deboss / pressed in) ---------- */
-div[data-baseweb="input"], div[data-baseweb="base-input"],
-div[data-baseweb="select"] > div, textarea {
-  background: var(--bg) !important;
+/* Expander */
+[data-testid="stExpander"] { border-radius: 14px !important; box-shadow: var(--raise-sm) !important; }
+[data-testid="stExpander"] details { border: none !important; background: transparent !important; }
+[data-testid="stExpander"] summary {
   border: none !important;
-  border-radius: 12px !important;
+  border-radius: 14px !important;
+  font-weight: 500 !important;
+  color: var(--text) !important;
+}
+[data-testid="stExpander"] summary:hover { background: transparent !important; }
+/* Expander-এর ভেতরের box সমতল রাখি, নইলে shadow-র উপর shadow হয় */
+[data-testid="stExpander"] div[data-testid="stVerticalBlockBorderWrapper"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 1px solid var(--line) !important;
+}
+
+/* Login form: double border সরানো */
+[data-testid="stForm"] { border: none !important; padding: 0 !important; }
+
+/* ============================================================
+   6. DEBOSS (গর্ত): input, select, uploader, table, alert
+   ============================================================ */
+div[data-baseweb="select"] > div,
+div[data-baseweb="input"],
+textarea,
+[data-testid="stFileUploaderDropzone"],
+[data-testid="stDataFrame"],
+[data-testid="stDataEditor"],
+[data-testid="stAlert"] {
+  background: var(--well) !important;
+  background-color: var(--well) !important;
+  border: none !important;
   box-shadow: var(--inset) !important;
+}
+div[data-baseweb="select"] > div,
+div[data-baseweb="input"],
+textarea { border-radius: 12px !important; }
+
+/* Inner input layers: কিছু না, শুধু বাইরের গর্তটা থাকবে */
+div[data-baseweb="base-input"],
+[data-testid="stNumberInputContainer"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
 }
 .stTextInput input, .stNumberInput input {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
   color: var(--text) !important;
+  padding: 0.5rem 1rem !important;
 }
 .stTextInput input:focus, .stNumberInput input:focus { box-shadow: none !important; }
 div[data-baseweb="input"]:focus-within { outline: 1px solid var(--muted); }
 .stTextInput input::placeholder { color: var(--muted) !important; }
-
-/* ---------- File uploader (deboss tray) ---------- */
-[data-testid="stFileUploaderDropzone"] {
-  background: var(--bg) !important;
-  border: 1px dashed var(--muted) !important;
-  border-radius: 16px !important;
-  box-shadow: var(--inset) !important;
+[data-testid="stNumberInputStepUp"], [data-testid="stNumberInputStepDown"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text) !important;
 }
-[data-testid="stFileUploaderDropzone"]:hover { background: var(--bg) !important; border-color: var(--text) !important; }
-[data-testid="stFileUploaderDropzone"] svg { fill: var(--muted) !important; }
 
-/* ---------- Data editor / table (deboss) ---------- */
+/* File uploader (deboss tray) */
+[data-testid="stFileUploaderDropzone"] {
+  border: 1px dashed rgba(255,255,255,0.18) !important;
+  border-radius: 18px !important;
+  padding: 2rem 1rem !important;
+  text-align: center !important;
+}
+@media (prefers-color-scheme: light) {
+  [data-testid="stFileUploaderDropzone"] { border-color: rgba(0,0,0,0.25) !important; }
+}
+[data-testid="stFileUploaderDropzone"]:hover { border-color: var(--text) !important; }
+[data-testid="stFileUploaderDropzone"] svg { fill: var(--muted) !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] svg {
+  width: 32px !important; height: 32px !important; margin-bottom: 4px;
+}
+[data-testid="stFileUploaderDropzoneInstructions"] span { font-size: 14px !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] small {
+  font-size: 12px !important; color: var(--muted) !important;
+}
+
+/* Data editor / table */
 [data-testid="stDataFrame"], [data-testid="stDataEditor"] {
-  background: var(--bg) !important;
   border-radius: 14px !important;
-  box-shadow: var(--inset) !important;
   padding: 4px;
 }
 [data-testid="stDataFrame"] div[role="columnheader"],
@@ -660,18 +231,19 @@ div[data-baseweb="input"]:focus-within { outline: 1px solid var(--muted); }
   background: var(--line) !important;
 }
 
-/* ---------- Expander (raised bar) ---------- */
-[data-testid="stExpander"] {
-  background: var(--surface) !important;
-  border: none !important;
-  border-radius: 14px !important;
-  box-shadow: var(--raise-sm) !important;
+/* Alerts: সবুজ/লাল/হলুদ বাদ, পুরো grayscale */
+[data-testid="stAlert"] {
+  border-radius: 12px !important;
+  filter: grayscale(1);              /* emoji-ও ধূসর হবে */
 }
-[data-testid="stExpander"] summary { border: none !important; color: var(--text) !important; }
-[data-testid="stExpander"] summary:hover { background: transparent !important; }
+[data-testid="stAlert"] > div, [data-testid="stAlertContainer"] { background: transparent !important; }
+[data-testid="stAlert"] p, [data-testid="stAlert"] div { color: var(--text) !important; }
 
-/* ---------- Buttons (emboss -> press = deboss) ---------- */
-.stButton > button, .stDownloadButton button,
+/* ============================================================
+   7. BUTTONS: উঁচু, চাপলে ভেতরে বসে যায়
+   ============================================================ */
+.stButton > button,
+.stDownloadButton button,
 div[data-testid="stFormSubmitButton"] button,
 div[data-testid="stButton"] > button[kind="primary"],
 div[data-testid="stFormSubmitButton"] button[kind="primary"] {
@@ -679,147 +251,146 @@ div[data-testid="stFormSubmitButton"] button[kind="primary"] {
   color: var(--btn-fg) !important;
   border: none !important;
   border-radius: 12px !important;
+  padding: 0.7rem 2rem !important;
   font-weight: 600 !important;
+  font-size: 1rem !important;
   letter-spacing: 0.06em;
   box-shadow: var(--raise-sm) !important;
   transition: box-shadow .15s ease, transform .15s ease !important;
 }
-.stButton > button:hover, .stDownloadButton button:hover,
+.stButton > button:hover,
+.stDownloadButton button:hover,
 div[data-testid="stFormSubmitButton"] button:hover,
 div[data-testid="stButton"] > button[kind="primary"]:hover {
   background: var(--btn-bg) !important;
   transform: translateY(-1px);
 }
-.stButton > button:active, .stDownloadButton button:active,
+.stButton > button:active,
+.stDownloadButton button:active,
 div[data-testid="stFormSubmitButton"] button:active {
-  box-shadow: var(--inset) !important;     /* বোতাম চাপলে ভেতরে বসে যাবে */
-  transform: translateY(0);
+  box-shadow: var(--inset) !important;
+  transform: translateY(1px);
 }
 .stButton > button p, .stDownloadButton button p,
 div[data-testid="stFormSubmitButton"] button p { color: var(--btn-fg) !important; }
 
-/* Secondary (non-primary) buttons = outlined emboss */
+/* Secondary buttons (Upload New File, Add Material ...) */
 .stButton > button[kind="secondary"] {
-  background: var(--surface) !important;
+  background: var(--face) !important;
   color: var(--text) !important;
   box-shadow: var(--raise-sm) !important;
 }
 .stButton > button[kind="secondary"] p { color: var(--text) !important; }
 
-/* ---------- Checkbox / radio ---------- */
+/* ---------- 8. Checkbox / Toggle / Radio ---------- */
 input[type="checkbox"], input[type="radio"] { accent-color: var(--text) !important; }
-
-/* ---------- Alerts (flat deboss strip) ---------- */
-[data-testid="stAlert"] {
-  background: var(--bg) !important;
-  border: none !important;
-  border-radius: 12px !important;
+[data-testid="stCheckbox"] span[role="checkbox"],
+[data-baseweb="checkbox"] > div:first-child {
+  background: var(--well) !important;
   box-shadow: var(--inset) !important;
+  border: none !important;
 }
-[data-testid="stAlert"] p, [data-testid="stAlert"] div { color: var(--text) !important; }
+[data-testid="stToggle"] [role="switch"] { box-shadow: var(--inset) !important; }
 
-/* ---------- Badges + step indicators ---------- */
+/* ============================================================
+   9. Custom components (theme.py classes)
+   ============================================================ */
+
+/* Badge */
 .pepco-badge {
-  background: var(--bg) !important; color: var(--text) !important;
-  box-shadow: var(--inset); border-radius: 10px; letter-spacing: 0.05em;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  margin-left: 8px;
+  border-radius: 10px;
+  letter-spacing: 0.05em;
+  background: var(--well) !important;
+  color: var(--text) !important;
+  box-shadow: var(--inset);
 }
 .pepco-badge.muted { color: var(--muted) !important; }
 
+/* Step circles (render_steps) */
+.pepco-steps { display: flex; gap: 8px; justify-content: flex-end; margin-bottom: 14px; }
 .pepco-step-circle {
-  background: var(--bg); color: var(--muted);
+  width: 26px; height: 26px; border-radius: 50%;
+  font-size: 11px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--well); color: var(--muted);
   border: none !important; box-shadow: var(--inset);
 }
 .pepco-step-circle.active {
-  background: var(--btn-bg) !important; color: var(--btn-fg) !important;
+  background: var(--btn-bg) !important;
+  color: var(--btn-fg) !important;
   box-shadow: var(--raise-sm);
 }
 
-/* theme.py-তে এই class গুলো আছে কিন্তু style.css-এ ছিল না, তাই যোগ করলাম */
-.pepco-stage-line { display:flex; align-items:center; gap:12px; margin:6px 0 14px; }
-.pepco-dots { display:flex; align-items:center; gap:6px; }
-.pepco-dot { width:10px; height:10px; border-radius:50%; background:var(--bg); box-shadow:var(--inset); }
-.pepco-dot.current, .pepco-dot.done { background:var(--btn-bg); box-shadow:var(--raise-sm); }
-.pepco-dot-line { width:22px; height:2px; background:var(--line); }
-.pepco-dot-line.done { background:var(--muted); }
-.pepco-stage-text { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted) !important; }
-.pepco-stage-banner {
-  text-align:center; padding:14px; margin:18px 0 10px; border-radius:14px;
-  background:var(--surface); box-shadow:var(--raise-sm);
-  font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+/* Pill tabs (render_progress_tabs) */
+.pepco-tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+.pepco-tab {
+  flex: 1; min-width: 140px; text-align: center;
+  padding: 10px 14px; border-radius: 12px;
+  font-size: 13px; font-weight: 500;
+  background: var(--well); color: var(--muted);
+  box-shadow: var(--inset);
 }
-.pepco-tabs { display:flex; gap:10px; margin-bottom:14px; }
-.pepco-tab { flex:1; text-align:center; padding:10px; border-radius:12px; background:var(--bg); box-shadow:var(--inset); color:var(--muted); font-size:13px; }
-.pepco-tab.active { background:var(--surface); box-shadow:var(--raise-sm); color:var(--text); font-weight:600; }
-
-/* ---------- Scrollbar ---------- */
-::-webkit-scrollbar-track { background: var(--bg) !important; }
-::-webkit-scrollbar-thumb { background: var(--muted) !important; border-radius: 10px; }
-
-
-/* ============================================================
-   Emboss v2 fixes — paste AFTER the previous theme block
-   ============================================================ */
-
-/* 1. Stronger emboss / deboss contrast */
-:root {
-  --bg:#141414; --surface:#1a1a1a; --hi:#2e2e2e; --lo:#000000;
-  --raise:    8px 8px 18px var(--lo), -6px -6px 16px var(--hi);
-  --raise-sm: 4px 4px 10px var(--lo), -3px -3px 9px var(--hi);
-  --inset:    inset 4px 4px 9px var(--lo), inset -3px -3px 8px var(--hi);
-}
-@media (prefers-color-scheme: light) {
-  :root { --bg:#e6e6e6; --surface:#e6e6e6; --hi:#ffffff; --lo:#bdbdbd; }
-}
-/* হালকা top-edge highlight = আসল emboss কিনারা */
-.main-header { border-top: 1px solid rgba(255,255,255,0.06) !important; }
-
-/* 2. Inputs / Selectbox: নীলচে tint বাদ, শুধু একটাই deboss layer */
-div[data-baseweb="select"] > div,
-div[data-baseweb="input"] {
-  background: var(--bg) !important;
-  background-color: var(--bg) !important;
-  border: none !important;
-  border-radius: 12px !important;
-  box-shadow: var(--inset) !important;
-}
-div[data-baseweb="base-input"],
-[data-testid="stNumberInputContainer"] {
-  background: transparent !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-[data-testid="stNumberInputStepUp"],
-[data-testid="stNumberInputStepDown"] {
-  background: transparent !important;
-  box-shadow: none !important;
-  color: var(--text) !important;
+.pepco-tab.active {
+  background: var(--face); color: var(--text); font-weight: 600;
+  box-shadow: var(--raise-sm);
 }
 
-/* 3. Alerts: সবুজ/লাল বাদ, grayscale + deboss */
-[data-testid="stAlert"] {
-  background: var(--bg) !important;
-  border: none !important;
-  border-radius: 12px !important;
-  box-shadow: var(--inset) !important;
-  filter: grayscale(1);              /* ✅ emoji-ও ধূসর হবে */
+/* Compact stage line (render_stage_line) */
+.pepco-stage-line { display: flex; align-items: center; gap: 12px; margin: 6px 0 14px; }
+.pepco-dots { display: flex; align-items: center; gap: 6px; }
+.pepco-dot {
+  display: inline-block; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--well); box-shadow: var(--inset);
 }
-[data-testid="stAlert"] > div,
-[data-testid="stAlertContainer"] {
-  background: transparent !important;
-}
-
-/* 4. Heading hierarchy (ছোট ও পরিষ্কার) */
-.stMarkdown h1, [data-testid="stHeading"] h1 { font-size: 1.6rem !important; }
-.stMarkdown h2, [data-testid="stHeading"] h2 { font-size: 1.25rem !important; font-weight: 600 !important; }
-.stMarkdown h3, [data-testid="stHeading"] h3 {
-  font-size: 0.95rem !important; font-weight: 600 !important;
-  letter-spacing: 0.1em; text-transform: uppercase;
+.pepco-dot.current, .pepco-dot.done { background: var(--btn-bg); box-shadow: var(--raise-sm); }
+.pepco-dot-line { display: inline-block; width: 22px; height: 2px; background: var(--line); }
+.pepco-dot-line.done { background: var(--muted); }
+.pepco-stage-text {
+  font-size: 12px; letter-spacing: .08em; text-transform: uppercase;
   color: var(--muted) !important;
 }
 
-/* 5. Login: double border সরানো */
-[data-testid="stForm"] { border: none !important; padding: 0 !important; }
+/* Big stage banner (render_stage_banner) */
+.pepco-stage-banner {
+  width: 100%; text-align: center;
+  padding: 18px 16px; margin: 18px 0 14px;
+  border-radius: 16px;
+  background: var(--face); box-shadow: var(--raise-sm);
+  font-size: 22px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+}
 
-/* 6. Logo badge + title emoji B&W */
-.main-header img { border-radius: 10px; box-shadow: var(--raise-sm); }
-.main-header h1  { filter: grayscale(1); }   /* 🔒 emoji ধূসর */
+/* Legacy classes (plate app compatibility) */
+.tag-display {
+  background: var(--well); box-shadow: var(--inset);
+  padding: 10px; border-radius: 10px;
+  text-align: center; font-weight: 600; font-size: 0.9rem;
+}
+.metric-card {
+  background: var(--face); box-shadow: var(--raise-sm);
+  border-radius: 14px; padding: 1rem; text-align: center;
+}
+.metric-value { font-size: 2rem; font-weight: 700; }
+.metric-label { font-size: 0.85rem; color: var(--muted) !important; margin-top: 0.5rem; }
+.best-algo {
+  background: var(--btn-bg); color: var(--btn-fg) !important;
+  box-shadow: var(--raise); border-radius: 16px;
+  padding: 1.5rem; text-align: center; margin-bottom: 2rem;
+}
+.best-algo .metric-value, .best-algo .metric-label { color: var(--btn-fg) !important; }
+.warning, .info {
+  background: var(--well); box-shadow: var(--inset);
+  padding: 12px; border-radius: 10px; margin: 1rem 0;
+}
+.footer-text { color: var(--muted) !important; }
+.footer-border { border-top: 1px solid var(--line) !important; }
+
+/* ---------- 10. Scrollbar ---------- */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg) !important; }
+::-webkit-scrollbar-thumb { background: var(--muted) !important; border-radius: 10px; }
