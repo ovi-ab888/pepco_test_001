@@ -539,13 +539,18 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
 
 /* ---------- Design tokens (DARK = default) ---------- */
 :root {
-  --bg:#0a0a0a; --surface:#111111; --text:#f0f0f0; --muted:#7d7d7d;
-  --hi:#1f1f1f; --lo:#000000; --line:rgba(255,255,255,0.12);
-  --btn-bg:linear-gradient(180deg,#f5f5f5,#bdbdbd); --btn-fg:#0a0a0a;
-}
-.main-header h1 {
-  background: linear-gradient(180deg,#fff,#8a8a8a);
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  --bg:      #151515;
+  --surface: #1c1c1c;
+  --text:    #ececec;
+  --muted:   #8c8c8c;
+  --hi:      #262626;   /* highlight edge */
+  --lo:      #0b0b0b;   /* shadow edge */
+  --line:    rgba(255,255,255,0.07);
+  --btn-bg:  #f2f2f2;
+  --btn-fg:  #111111;
+  --raise:   6px 6px 14px var(--lo), -6px -6px 14px var(--hi);
+  --raise-sm:3px 3px 8px var(--lo), -3px -3px 8px var(--hi);
+  --inset:   inset 3px 3px 7px var(--lo), inset -3px -3px 7px var(--hi);
 }
 
 /* ---------- LIGHT mode tokens ---------- */
