@@ -60,7 +60,6 @@ pdf_files = st.file_uploader(
     key=f"pdf_uploader_{st.session_state.uploader_key}",
 )
 if not pdf_files:
-    st.info("Please upload a PDF to continue.")
     st.stop()
 
 # -------------------------------
@@ -89,7 +88,6 @@ enriched_df = enrich_dataframe(
 )
 
 st.subheader("Review & correct extracted data")
-st.caption("Every field is editable — fix anything the extractor got wrong.")
 corrected_df = st.data_editor(
     enriched_df,
     use_container_width=True,
@@ -173,14 +171,80 @@ def _template_name_for(entry: dict) -> str:
 
 selected_labels = []
 
-# ---- Section 1: Benefite Tag and Sticker (LIVE) ----
-with st.expander("Benefite Tag and Sticker", expanded=True):
+# ---- Block 1: General Items (Inner & Outer Sticker, Hangtag, Care Label) ----
+with st.expander("General Items", expanded=True):
+    # Inner & Outer Sticker
     if st.checkbox("Inner & Outer Sticker", key="chk_inner_outer"):
         selected_labels.append("Inner & Outer Sticker")
 
+    # Hangtag (upor-er editable table theke shorashori data ney)
+    hangtag_rows = corrected_df.fillna("").to_dict(orient="records")
+    _missing = [c for c in ("product_name", "PLN") if not any(str(r.get(c, "")).strip() for r in hangtag_rows)]
+
+    include_hangtag = st.checkbox("Hangtag", key="chk_hangtag", disabled=bool(_missing))
+    if _missing:
+        st.caption("Hangtag-er jonno 'Additional Data'-te Department/Product Type ar PLN Price din "
+                   f"(ekhono khali: {', '.join(_missing)}).")
+    if include_hangtag and not _missing:
+        label_options["Hangtag"] = {
+            "generate": lambda rows: hangtag_pad.generate_batch_pdf(rows),
+            "template_path": None,
+            "template_name": "Hangtag",
+            "per_row": True,   # hangtag nijei row-gulo group kore
+        }
+        selected_labels.append("Hangtag")
+
+    # Care Label (upor-er table theke data ney)
+    care_rows = corrected_df.fillna("").to_dict(orient="records")
+    _care_missing = care_label.missing_columns(care_rows)
+
+    include_care = st.checkbox("Care Label", key="chk_care_label", disabled=bool(_care_missing))
+    if _care_missing:
+        st.caption("Care Label-er jonno table-e ei column-gulo lagbe (ekhono khali/nei): "
+                   f"{', '.join(_care_missing)}")
+    if include_care and not _care_missing:
+        label_options["Care Label"] = {
+            "generate": lambda rows: care_label.generate_batch_pdf(rows),
+            "template_path": None,
+            "template_name": "Care Label",
+            "per_row": True,   # 1 row = 1 size; care_label nijei Pad-e group kore
+        }
+        selected_labels.append("Care Label")
+
+# ---- Block 2: Size Tag (LIVE) ----
+with st.expander("Size Tag", expanded=False):
+    size_types = size_tag_label.list_types()
+    if not size_types:
+        st.caption("No Size Tag templates found yet in templates/Sizetag/.")
+    else:
+        c1, c2, c3, c4 = st.columns(4)
+
+        sel_type = c1.selectbox("Select Type", size_types, key="size_tag_type")
+
+        departments = size_tag_label.list_departments(sel_type) if sel_type else []
+        sel_dept = c2.selectbox("Select Department", departments, key="size_tag_dept") if departments else None
+
+        customers = size_tag_label.list_customers(sel_type, sel_dept) if sel_dept else []
+        sel_cust = c3.selectbox("Select Customer", customers, key="size_tag_cust") if customers else None
+
+        sizes = size_tag_label.list_sizes(sel_type, sel_dept, sel_cust) if sel_cust else []
+        sel_size = c4.selectbox("Select Size", sizes, key="size_tag_size") if sizes else None
+
+        include_size_tag = st.checkbox("Generate Size Tag", key="include_size_tag", disabled=not sel_size)
+        if include_size_tag and sel_size:
+            template_path = size_tag_label.get_template_path(sel_type, sel_dept, sel_cust, sel_size)
+            size_tag_key = f"Size Tag ({sel_type}/{sel_dept}/{sel_cust}/{sel_size})"
+            label_options[size_tag_key] = {
+                "generate": lambda rows, tp=template_path: size_tag_label.generate_batch(rows, tp),
+                "template_path": template_path,
+            }
+            selected_labels.append(size_tag_key)
+
+# ---- Block 3: Benefite Tag and Sticker (templates/Benefite/ theke auto-scan) ----
+with st.expander("Benefite Tag and Sticker", expanded=False):
     sticker_types = benefite_label.list_sticker_types()
     if not sticker_types:
-        st.caption("No other Benefite templates found yet in templates/Benefite/.")
+        st.caption("No Benefite templates found yet in templates/Benefite/.")
     for sticker_type in sticker_types:
         if benefite_label.is_auto_size_type(sticker_type):
             # one checkbox — the right variant is picked per-row automatically
@@ -217,78 +281,6 @@ with st.expander("Benefite Tag and Sticker", expanded=True):
                 "template_path": template_path,
             }
             selected_labels.append(label_key)
-
-# ---- Section 2: Size Tag (LIVE) ----
-with st.expander("Size Tag", expanded=False):
-    size_types = size_tag_label.list_types()
-    if not size_types:
-        st.caption("No Size Tag templates found yet in templates/Sizetag/.")
-    else:
-        c1, c2, c3, c4 = st.columns(4)
-
-        sel_type = c1.selectbox("Select Type", size_types, key="size_tag_type")
-
-        departments = size_tag_label.list_departments(sel_type) if sel_type else []
-        sel_dept = c2.selectbox("Select Department", departments, key="size_tag_dept") if departments else None
-
-        customers = size_tag_label.list_customers(sel_type, sel_dept) if sel_dept else []
-        sel_cust = c3.selectbox("Select Customer", customers, key="size_tag_cust") if customers else None
-
-        sizes = size_tag_label.list_sizes(sel_type, sel_dept, sel_cust) if sel_cust else []
-        sel_size = c4.selectbox("Select Size", sizes, key="size_tag_size") if sizes else None
-
-        include_size_tag = st.checkbox("Generate Size Tag", key="include_size_tag", disabled=not sel_size)
-        if include_size_tag and sel_size:
-            template_path = size_tag_label.get_template_path(sel_type, sel_dept, sel_cust, sel_size)
-            size_tag_key = f"Size Tag ({sel_type}/{sel_dept}/{sel_cust}/{sel_size})"
-            label_options[size_tag_key] = {
-                "generate": lambda rows, tp=template_path: size_tag_label.generate_batch(rows, tp),
-                "template_path": template_path,
-            }
-            selected_labels.append(size_tag_key)
-
-# ---- Section 3: Hangtag (upor-er editable table theke shorashori data ney) ----
-# Ager moto alada CSV upload lagbe na — "Additional Data" + PDF theke ashe
-# product_name (21 language), price, Collection, Colour_SKU, Batch, barcode,
-# washing_code, Cotton shob ekhon ei table-e-i ache.
-with st.expander("Hangtag", expanded=False):
-    hangtag_rows = corrected_df.fillna("").to_dict(orient="records")
-    _missing = [c for c in ("product_name", "PLN") if not any(str(r.get(c, "")).strip() for r in hangtag_rows)]
-
-    if _missing:
-        st.info("Hangtag-er jonno 'Additional Data'-te Department/Product Type ar PLN Price din "
-                f"(ekhono khali: {', '.join(_missing)}).")
-
-    include_hangtag = st.checkbox("Generate Hangtag", key="chk_hangtag", disabled=bool(_missing))
-    if include_hangtag and not _missing:
-        label_options["Hangtag"] = {
-            "generate": lambda rows: hangtag_pad.generate_batch_pdf(rows),
-            "template_path": None,
-            "template_name": "Hangtag",
-            "per_row": True,   # hangtag nijei row-gulo group kore
-        }
-        selected_labels.append("Hangtag")
-
-# ---- Section 4: Care Label (upor-er table theke data ney) ----
-# cm_size, barcode, SKU, washing_code, Composition_Care shob table-e-i ache,
-# tai alada Composition / Washing Code input lagbe na.
-with st.expander("Care Label", expanded=False):
-    care_rows = corrected_df.fillna("").to_dict(orient="records")
-    _care_missing = care_label.missing_columns(care_rows)
-
-    if _care_missing:
-        st.info("Care Label-er jonno table-e ei column-gulo lagbe (ekhono khali/nei): "
-                f"{', '.join(_care_missing)}")
-
-    include_care = st.checkbox("Generate Care Label", key="chk_care_label", disabled=bool(_care_missing))
-    if include_care and not _care_missing:
-        label_options["Care Label"] = {
-            "generate": lambda rows: care_label.generate_batch_pdf(rows),
-            "template_path": None,
-            "template_name": "Care Label",
-            "per_row": True,   # 1 row = 1 size; care_label nijei Pad-e group kore
-        }
-        selected_labels.append("Care Label")
 
 if selected_labels and st.button("Generate Selected Labels", type="primary"):
     rows = corrected_df.fillna("").to_dict(orient="records")
