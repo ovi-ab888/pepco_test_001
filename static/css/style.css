@@ -530,3 +530,227 @@ div[data-testid="stButton"] > button[kind="primary"]:hover {
     font-size: 26px;
     font-weight: 700;
 }
+
+
+/* ============================================================
+   PEPCO — Monochrome Emboss / Deboss Theme
+   Paste at the VERY END of style.css
+   ============================================================ */
+
+/* ---------- Design tokens (DARK = default) ---------- */
+:root {
+  --bg:      #151515;
+  --surface: #1c1c1c;
+  --text:    #ececec;
+  --muted:   #8c8c8c;
+  --hi:      #262626;   /* highlight edge */
+  --lo:      #0b0b0b;   /* shadow edge */
+  --line:    rgba(255,255,255,0.07);
+  --btn-bg:  #f2f2f2;
+  --btn-fg:  #111111;
+  --raise:   6px 6px 14px var(--lo), -6px -6px 14px var(--hi);
+  --raise-sm:3px 3px 8px var(--lo), -3px -3px 8px var(--hi);
+  --inset:   inset 3px 3px 7px var(--lo), inset -3px -3px 7px var(--hi);
+}
+
+/* ---------- LIGHT mode tokens ---------- */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg:      #e6e6e6;
+    --surface: #e6e6e6;
+    --text:    #1a1a1a;
+    --muted:   #6f6f6f;
+    --hi:      #ffffff;
+    --lo:      #c2c2c2;
+    --line:    rgba(0,0,0,0.08);
+    --btn-bg:  #151515;
+    --btn-fg:  #f5f5f5;
+  }
+}
+
+/* ---------- Base ---------- */
+.stApp { background: var(--bg) !important; }
+.stApp, .stApp p, .stApp div, .stApp span, .stApp label,
+.stMarkdown, .stMarkdown p, .stMarkdown strong, .stMarkdown b,
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .stMarkdown h4 {
+  color: var(--text) !important;
+}
+[data-testid="stHeader"] { background: transparent !important; }
+[data-testid="stCaptionContainer"], .stCaption, small { color: var(--muted) !important; }
+
+/* Letterpress (deboss) headings */
+.stMarkdown h1, .stMarkdown h2, .stMarkdown h3, .card-title {
+  letter-spacing: 0.02em;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 0 var(--hi), 0 -1px 0 var(--lo);
+}
+
+/* ---------- Header (embossed plate) ---------- */
+.main-header {
+  background: var(--surface) !important;
+  border: none !important;
+  border-radius: 20px !important;
+  box-shadow: var(--raise) !important;
+  margin: 0.5rem 0 2rem !important;
+}
+.main-header h1 {
+  color: var(--text) !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-size: 1.9rem !important;
+  text-shadow: 0 1px 0 var(--hi), 0 -1px 0 var(--lo);
+}
+.main-header p { color: var(--muted) !important; letter-spacing: 0.04em; }
+.main-header img { filter: grayscale(1) contrast(1.05); }   /* logo B&W */
+
+/* ---------- Cards + login box (raised) ---------- */
+.card,
+div[data-testid="stVerticalBlockBorderWrapper"] {
+  background: var(--surface) !important;
+  border: none !important;
+  border-radius: 18px !important;
+  box-shadow: var(--raise) !important;
+}
+.card-title { border-bottom: 1px solid var(--line) !important; color: var(--text) !important; }
+
+/* ---------- Inputs (deboss / pressed in) ---------- */
+div[data-baseweb="input"], div[data-baseweb="base-input"],
+div[data-baseweb="select"] > div, textarea {
+  background: var(--bg) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: var(--inset) !important;
+}
+.stTextInput input, .stNumberInput input {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--text) !important;
+}
+.stTextInput input:focus, .stNumberInput input:focus { box-shadow: none !important; }
+div[data-baseweb="input"]:focus-within { outline: 1px solid var(--muted); }
+.stTextInput input::placeholder { color: var(--muted) !important; }
+
+/* ---------- File uploader (deboss tray) ---------- */
+[data-testid="stFileUploaderDropzone"] {
+  background: var(--bg) !important;
+  border: 1px dashed var(--muted) !important;
+  border-radius: 16px !important;
+  box-shadow: var(--inset) !important;
+}
+[data-testid="stFileUploaderDropzone"]:hover { background: var(--bg) !important; border-color: var(--text) !important; }
+[data-testid="stFileUploaderDropzone"] svg { fill: var(--muted) !important; }
+
+/* ---------- Data editor / table (deboss) ---------- */
+[data-testid="stDataFrame"], [data-testid="stDataEditor"] {
+  background: var(--bg) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--inset) !important;
+  padding: 4px;
+}
+[data-testid="stDataFrame"] div[role="columnheader"],
+[data-testid="stDataEditor"] div[role="columnheader"] {
+  background: transparent !important;
+  color: var(--text) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em;
+}
+[data-testid="stDataFrame"] div[role="row"]:nth-child(even),
+[data-testid="stDataEditor"] div[role="row"]:nth-child(even) {
+  background: var(--line) !important;
+}
+
+/* ---------- Expander (raised bar) ---------- */
+[data-testid="stExpander"] {
+  background: var(--surface) !important;
+  border: none !important;
+  border-radius: 14px !important;
+  box-shadow: var(--raise-sm) !important;
+}
+[data-testid="stExpander"] summary { border: none !important; color: var(--text) !important; }
+[data-testid="stExpander"] summary:hover { background: transparent !important; }
+
+/* ---------- Buttons (emboss -> press = deboss) ---------- */
+.stButton > button, .stDownloadButton button,
+div[data-testid="stFormSubmitButton"] button,
+div[data-testid="stButton"] > button[kind="primary"],
+div[data-testid="stFormSubmitButton"] button[kind="primary"] {
+  background: var(--btn-bg) !important;
+  color: var(--btn-fg) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em;
+  box-shadow: var(--raise-sm) !important;
+  transition: box-shadow .15s ease, transform .15s ease !important;
+}
+.stButton > button:hover, .stDownloadButton button:hover,
+div[data-testid="stFormSubmitButton"] button:hover,
+div[data-testid="stButton"] > button[kind="primary"]:hover {
+  background: var(--btn-bg) !important;
+  transform: translateY(-1px);
+}
+.stButton > button:active, .stDownloadButton button:active,
+div[data-testid="stFormSubmitButton"] button:active {
+  box-shadow: var(--inset) !important;     /* বোতাম চাপলে ভেতরে বসে যাবে */
+  transform: translateY(0);
+}
+.stButton > button p, .stDownloadButton button p,
+div[data-testid="stFormSubmitButton"] button p { color: var(--btn-fg) !important; }
+
+/* Secondary (non-primary) buttons = outlined emboss */
+.stButton > button[kind="secondary"] {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  box-shadow: var(--raise-sm) !important;
+}
+.stButton > button[kind="secondary"] p { color: var(--text) !important; }
+
+/* ---------- Checkbox / radio ---------- */
+input[type="checkbox"], input[type="radio"] { accent-color: var(--text) !important; }
+
+/* ---------- Alerts (flat deboss strip) ---------- */
+[data-testid="stAlert"] {
+  background: var(--bg) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: var(--inset) !important;
+}
+[data-testid="stAlert"] p, [data-testid="stAlert"] div { color: var(--text) !important; }
+
+/* ---------- Badges + step indicators ---------- */
+.pepco-badge {
+  background: var(--bg) !important; color: var(--text) !important;
+  box-shadow: var(--inset); border-radius: 10px; letter-spacing: 0.05em;
+}
+.pepco-badge.muted { color: var(--muted) !important; }
+
+.pepco-step-circle {
+  background: var(--bg); color: var(--muted);
+  border: none !important; box-shadow: var(--inset);
+}
+.pepco-step-circle.active {
+  background: var(--btn-bg) !important; color: var(--btn-fg) !important;
+  box-shadow: var(--raise-sm);
+}
+
+/* theme.py-তে এই class গুলো আছে কিন্তু style.css-এ ছিল না, তাই যোগ করলাম */
+.pepco-stage-line { display:flex; align-items:center; gap:12px; margin:6px 0 14px; }
+.pepco-dots { display:flex; align-items:center; gap:6px; }
+.pepco-dot { width:10px; height:10px; border-radius:50%; background:var(--bg); box-shadow:var(--inset); }
+.pepco-dot.current, .pepco-dot.done { background:var(--btn-bg); box-shadow:var(--raise-sm); }
+.pepco-dot-line { width:22px; height:2px; background:var(--line); }
+.pepco-dot-line.done { background:var(--muted); }
+.pepco-stage-text { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted) !important; }
+.pepco-stage-banner {
+  text-align:center; padding:14px; margin:18px 0 10px; border-radius:14px;
+  background:var(--surface); box-shadow:var(--raise-sm);
+  font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+}
+.pepco-tabs { display:flex; gap:10px; margin-bottom:14px; }
+.pepco-tab { flex:1; text-align:center; padding:10px; border-radius:12px; background:var(--bg); box-shadow:var(--inset); color:var(--muted); font-size:13px; }
+.pepco-tab.active { background:var(--surface); box-shadow:var(--raise-sm); color:var(--text); font-weight:600; }
+
+/* ---------- Scrollbar ---------- */
+::-webkit-scrollbar-track { background: var(--bg) !important; }
+::-webkit-scrollbar-thumb { background: var(--muted) !important; border-radius: 10px; }
