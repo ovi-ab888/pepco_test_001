@@ -21,6 +21,11 @@ One Pad page =
       on. Front/Back Part 4 (and 5 on the wide Pad 2) are not in the Pad
       templates - they are drawn (with a pink caption) only when needed.
 
+"Made in Bangladesh ..." paragraph:
+      Anchored to the BOTTOM of the panel just before the Produced-by panel
+      (bottom of Back Part 2 when Produced by is in Front Part 3, bottom of
+      Front Part 3 when it is in Back Part 3, ...), like the sample file.
+
 Pad template choice (per group of sizes):
       <= 6 sizes -> Care_Label_Pad.pdf     (6 Front Part 1 slots)
       7-8 sizes  -> Care_Label_Pad 2.pdf   (8 Front Part 1 slots)
@@ -196,6 +201,21 @@ def split_care_and_block(text: str, marker: str):
     return text[:m.start()], text[m.start():]
 
 
+def split_made_in(care_text: str, marker: str):
+    """
+    Split the text that comes BEFORE the 'Produced by' block into
+    (care_instructions_text, made_in_text). The Made-in paragraph starts at the
+    first line beginning with `marker` ("Made in Bangladesh...") and runs to
+    the end of `care_text`. No marker -> (care_text, "").
+    """
+    if not marker:
+        return care_text, ""
+    m = re.search(r"(?m)^[ \t]*" + re.escape(marker), care_text)
+    if not m:
+        return care_text, ""
+    return care_text[:m.start()], care_text[m.start():]
+
+
 def _trim_blank(lines: list) -> list:
     i, j = 0, len(lines)
     while i < j and lines[i] == "":
@@ -205,13 +225,18 @@ def _trim_blank(lines: list) -> list:
     return lines[i:j]
 
 
-def flow_into_panels(care_lines: list, block_lines: list, mapping: dict, panels: list) -> dict:
+def flow_into_panels(care_lines: list, block_lines: list, mapping: dict, panels: list,
+                     made_lines: list = None) -> dict:
     """
     1) Pour the Care Instructions lines into Front Part 1 (lower part) + the
        panels, in reading order (blank lines at the TOP of a panel are dropped).
-    2) Put the 'Produced by + address' block, UNSPLIT, into ONE panel:
-       Front Part 3 at the earliest; if the care text already reaches Front 3
-       it goes to the next empty panel (Back 3, then Front 4, ...).
+    2) Put the 'Produced by + address' block, UNSPLIT, into ONE panel: Front
+       Part 3 at the earliest; if the care text already reaches Front 3 it goes
+       to the next empty panel (Back 3, then Front 4, ...).
+    3) If `made_lines` (the "Made in Bangladesh ..." paragraph) is given, it is
+       anchored to the BOTTOM of the panel just before the Produced-by panel.
+       It needs `made_gap_min_lines` blank line(s) after the care text; if it
+       does not fit there, the Made-in / Produced-by pair moves one panel on.
     Returns {"front1": [...], "back1": [...], ...}. Raises CareLabelOverflow.
     """
     comp = mapping["composition"]
@@ -219,10 +244,11 @@ def flow_into_panels(care_lines: list, block_lines: list, mapping: dict, panels:
     order = [("front1", comp["front1_first_baseline"])] + \
             [(p["name"], p["first_baseline"]) for p in panels]
     names = [n for n, _ in order]
+    caps = [_capacity(first, last, pitch) for _, first in order]
 
-    out, i, last_used = {}, 0, -1
+    out, i, last_used, used_in_last = {}, 0, -1, 0
     for idx, (name, first) in enumerate(order):
-        cap = _capacity(first, last, pitch)
+        cap = caps[idx]
         while i < len(care_lines) and care_lines[i] == "":   # trim blank lines at panel top
             i += 1
         chunk = care_lines[i:i + cap]
@@ -230,6 +256,7 @@ def flow_into_panels(care_lines: list, block_lines: list, mapping: dict, panels:
         i += len(chunk)
         if any(chunk):
             last_used = idx
+            used_in_last = max(n for n, ln in enumerate(chunk) if ln) + 1   # ignore trailing blanks
     rest = [ln for ln in care_lines[i:] if ln != ""]
     if rest:
         raise CareLabelOverflow(
@@ -239,21 +266,37 @@ def flow_into_panels(care_lines: list, block_lines: list, mapping: dict, panels:
         )
 
     block = _trim_blank(block_lines)
+    made = _trim_blank(made_lines or [])
     if block:
         min_name = comp.get("block_min_panel", "front3")
         min_idx = names.index(min_name) if min_name in names else 0
         bidx = max(min_idx, last_used + 1)
+        gap = comp.get("made_gap_min_lines", 1)
+        if made:
+            # panel before the block must hold [care text] + gap + [Made-in at bottom]
+            while bidx - 1 == last_used and used_in_last + gap + len(made) > caps[bidx - 1]:
+                bidx += 1
+            if len(made) > caps[bidx - 1]:
+                raise CareLabelOverflow(f"The 'Made in' paragraph ({len(made)} lines) does not fit in one panel.")
         if bidx >= len(order):
             raise CareLabelOverflow(
                 "Care Instructions text is so long that the 'Produced by' block has no panel "
                 "left on this Pad. Shorten the composition text."
             )
         bname, bfirst = order[bidx]
-        if len(block) > _capacity(bfirst, last, pitch):
+        if len(block) > caps[bidx]:
             raise CareLabelOverflow(
                 f"The 'Produced by' block ({len(block)} lines) does not fit in one panel."
             )
         out[bname] = block
+        if made:
+            pidx = bidx - 1
+            pname = names[pidx]
+            kept = out[pname][:used_in_last] if pidx == last_used else []   # care text exactly as flowed
+            pad = caps[pidx] - len(made) - len(kept)
+            out[pname] = kept + [""] * pad + made
+    elif made:
+        raise CareLabelOverflow("Internal: made-in lines given without a Produced-by block.")
     return out
 
 
@@ -377,9 +420,13 @@ def generate_pad_for_group(group_rows: list, mapping: dict = None, fonts: _Fonts
     comp = mapping["composition"]
     care_text, block_text = split_care_and_block(group_rows[0].get("Composition_Care", ""),
                                                  comp.get("block_marker", ""))
+    made_text = ""
+    if block_text.strip():       # Made-in is anchored to the panel before 'Produced by'
+        care_text, made_text = split_made_in(care_text, comp.get("made_in_marker", ""))
     wrap = lambda t: wrap_composition(t, fonts, comp["font_size"], comp["wrap_width"],
                                       comp.get("wide_prefixes", ()), comp.get("wide_width"))
-    flow = flow_into_panels(wrap(care_text), wrap(block_text), mapping, panels)  # may raise CareLabelOverflow
+    flow = flow_into_panels(wrap(care_text), wrap(block_text), mapping, panels,
+                            wrap(made_text) if made_text.strip() else None)  # may raise CareLabelOverflow
 
     fonts.register(page)
     _fill_pad_header(page, group_rows, mapping)
