@@ -430,3 +430,44 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--text) !importa
 [data-testid="stFileUploaderDropzone"] button:active { box-shadow: var(--inset) !important; }
 [data-testid="stFileUploaderDropzone"] button p,
 [data-testid="stFileUploaderDropzone"] button span { color: var(--text) !important; }
+
+
+/* ============================================================
+   12. WHITE THEME — সবসময় সাদা (OS dark হলেও)
+   Dark-এ ফিরতে চাইলে এই পুরো section 12 মুছে দিন
+   ============================================================ */
+:root {
+  --bg:      #e9e9e9;
+  --surface: #e9e9e9;
+  --well:    #dcdcdc;
+  --text:    #1a1a1a;
+  --muted:   #6b6b6b;
+  --hi:      #ffffff;
+  --lo:      #b4b4b4;
+  --line:    rgba(0,0,0,0.10);
+  --btn-bg:  linear-gradient(145deg,#2c2c2c,#0f0f0f);
+  --btn-fg:  #f7f7f7;
+  --raise:    12px 12px 26px var(--lo), -12px -12px 26px var(--hi);
+  --raise-sm: 6px 6px 14px var(--lo), -6px -6px 14px var(--hi);
+  --inset:    inset 7px 7px 14px var(--lo), inset -7px -7px 14px var(--hi);
+  --face:     linear-gradient(145deg,#f4f4f4,#dedede);
+}
+.stApp { background: var(--bg) !important; }
+
+[data-testid="stFileUploaderDropzone"] { border: 1px dashed rgba(0,0,0,0.28) !important; }
+.main-header { border-top: 1px solid rgba(255,255,255,0.9) !important; }
+.main-header h1 { text-shadow: 1px 1px 1px var(--hi), -1px -1px 1px rgba(0,0,0,0.12); }
+.stMarkdown h1, .stMarkdown h2, [data-testid="stHeading"] h1, [data-testid="stHeading"] h2 {
+  text-shadow: 1px 1px 1px var(--hi);
+}
+.main-header img { filter: none; }   /* pepco logo আসল রঙে */
+
+/* বোতামের লেখা সাদা, গাঢ় বোতামের উপর */
+.stButton > button:not([kind="secondary"]) p,
+.stDownloadButton button p,
+div[data-testid="stFormSubmitButton"] button p { color: var(--btn-fg) !important; }
+.stButton > button[kind="secondary"] p,
+[data-testid="stFileUploaderDropzone"] button p { color: var(--text) !important; }
+
+/* Alert: সাদা theme-এ গাঢ় লেখা */
+[data-testid="stAlert"], [data-testid="stAlert"] p, [data-testid="stAlert"] div { color: var(--text) !important; }
