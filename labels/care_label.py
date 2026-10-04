@@ -14,6 +14,13 @@ One Pad page =
       gaps; it is wrapped with real Arial metrics and poured line by line
       into the panels, exactly like the sample file.)
 
+"Produced by ... + importer address" block:
+      Kept together in ONE panel (never split). It goes to Front Part 3 when
+      the Care Instructions text before it is short; if that text already
+      reaches Front Part 3 it goes to Back Part 3, then Front Part 4, and so
+      on. Front/Back Part 4 (and 5 on the wide Pad 2) are not in the Pad
+      templates - they are drawn (with a pink caption) only when needed.
+
 Pad template choice (per group of sizes):
       <= 6 sizes -> Care_Label_Pad.pdf     (6 Front Part 1 slots)
       7-8 sizes  -> Care_Label_Pad 2.pdf   (8 Front Part 1 slots)
@@ -37,6 +44,7 @@ Repo structure needed:
 
 import json
 import os
+import re
 
 import fitz  # PyMuPDF
 
@@ -172,32 +180,80 @@ def _capacity(first_baseline: float, last_baseline: float, pitch: float) -> int:
     return int((last_baseline - first_baseline) / pitch + 1e-6) + 1
 
 
-def flow_into_panels(lines: list, mapping: dict) -> dict:
+def split_care_and_block(text: str, marker: str):
     """
-    Pour `lines` into front1 + the 5 panels in reading order.
-    Returns {"front1": [...], "back1": [...], ...}. Blank lines at the TOP of
-    a panel are dropped (a gap that lands on a panel edge must not push the
-    next text down). Raises CareLabelOverflow if text is left over.
+    Split Composition_Care into (care_instructions_text, block_text).
+    The block starts at the first line that begins with `marker`
+    ("Produced by...") and runs to the end (importer address block).
+    No marker -> (text, "").
+    """
+    text = _s(text).replace("\r\n", "\n").replace("\r", "\n")
+    if not marker:
+        return text, ""
+    m = re.search(r"(?m)^[ \t]*" + re.escape(marker), text)
+    if not m:
+        return text, ""
+    return text[:m.start()], text[m.start():]
+
+
+def _trim_blank(lines: list) -> list:
+    i, j = 0, len(lines)
+    while i < j and lines[i] == "":
+        i += 1
+    while j > i and lines[j - 1] == "":
+        j -= 1
+    return lines[i:j]
+
+
+def flow_into_panels(care_lines: list, block_lines: list, mapping: dict, panels: list) -> dict:
+    """
+    1) Pour the Care Instructions lines into Front Part 1 (lower part) + the
+       panels, in reading order (blank lines at the TOP of a panel are dropped).
+    2) Put the 'Produced by + address' block, UNSPLIT, into ONE panel:
+       Front Part 3 at the earliest; if the care text already reaches Front 3
+       it goes to the next empty panel (Back 3, then Front 4, ...).
+    Returns {"front1": [...], "back1": [...], ...}. Raises CareLabelOverflow.
     """
     comp = mapping["composition"]
     pitch, last = comp["line_pitch"], comp["last_baseline"]
     order = [("front1", comp["front1_first_baseline"])] + \
-            [(p["name"], p["first_baseline"]) for p in mapping["panels"]]
+            [(p["name"], p["first_baseline"]) for p in panels]
+    names = [n for n, _ in order]
 
-    out, i = {}, 0
-    for name, first in order:
+    out, i, last_used = {}, 0, -1
+    for idx, (name, first) in enumerate(order):
         cap = _capacity(first, last, pitch)
-        while i < len(lines) and lines[i] == "":   # trim blank lines at panel top
+        while i < len(care_lines) and care_lines[i] == "":   # trim blank lines at panel top
             i += 1
-        chunk = lines[i:i + cap]
+        chunk = care_lines[i:i + cap]
         out[name] = chunk
         i += len(chunk)
-    rest = [ln for ln in lines[i:] if ln != ""]
+        if any(chunk):
+            last_used = idx
+    rest = [ln for ln in care_lines[i:] if ln != ""]
     if rest:
         raise CareLabelOverflow(
-            f"Composition_Care is too long for the Care Label: {len(rest)}+ line(s) "
-            f"do not fit after Back Part 3. Shorten the composition text."
+            f"Care Instructions text is too long for this Pad: {len(rest)}+ line(s) "
+            f"do not fit after {names[-1].replace('front', 'Front Part ').replace('back', 'Back Part ')}. "
+            f"Shorten the composition text."
         )
+
+    block = _trim_blank(block_lines)
+    if block:
+        min_name = comp.get("block_min_panel", "front3")
+        min_idx = names.index(min_name) if min_name in names else 0
+        bidx = max(min_idx, last_used + 1)
+        if bidx >= len(order):
+            raise CareLabelOverflow(
+                "Care Instructions text is so long that the 'Produced by' block has no panel "
+                "left on this Pad. Shorten the composition text."
+            )
+        bname, bfirst = order[bidx]
+        if len(block) > _capacity(bfirst, last, pitch):
+            raise CareLabelOverflow(
+                f"The 'Produced by' block ({len(block)} lines) does not fit in one panel."
+            )
+        out[bname] = block
     return out
 
 
@@ -296,6 +352,14 @@ def pick_pad_for_group(n_units: int, mapping: dict) -> dict:
     raise ValueError(f"No Care Label Pad template holds {n_units} sizes")
 
 
+def _draw_panel_label(page, fonts, rect, text):
+    """Pink 'Front Part 4' style caption above an extra panel (same spot/colour as the Pad's own captions)."""
+    size = 11.5
+    w = fonts.width("arial", text, size)
+    page.insert_text(((rect.x0 + rect.x1) / 2 - w / 2, rect.y0 - 8.5), text, fontsize=size,
+                     fontname="arial", color=(0.925, 0, 0.549))
+
+
 def generate_pad_for_group(group_rows: list, mapping: dict = None, fonts: _Fonts = None) -> bytes:
     """ONE Pad page (PDF bytes) for a group of rows (one row = one size)."""
     if mapping is None:
@@ -305,14 +369,18 @@ def generate_pad_for_group(group_rows: list, mapping: dict = None, fonts: _Fonts
     fonts = fonts or _Fonts()
 
     pad_cfg = pick_pad_for_group(len(group_rows), mapping)
-    comp = mapping["composition"]
-    lines = wrap_composition(group_rows[0].get("Composition_Care", ""), fonts,
-                             comp["font_size"], comp["wrap_width"],
-                             comp.get("wide_prefixes", ()), comp.get("wide_width"))
-    flow = flow_into_panels(lines, mapping)   # may raise CareLabelOverflow
-
     pad_doc = fitz.open(_find_template(pad_cfg["template"]))
     page = pad_doc[0]
+    # extra panels (Front/Back Part 4, 5 ...) only if they fit inside this Pad's width
+    panels = [p for p in mapping["panels"] if p["rect"][2] <= page.rect.x1 - 8]
+
+    comp = mapping["composition"]
+    care_text, block_text = split_care_and_block(group_rows[0].get("Composition_Care", ""),
+                                                 comp.get("block_marker", ""))
+    wrap = lambda t: wrap_composition(t, fonts, comp["font_size"], comp["wrap_width"],
+                                      comp.get("wide_prefixes", ()), comp.get("wide_width"))
+    flow = flow_into_panels(wrap(care_text), wrap(block_text), mapping, panels)  # may raise CareLabelOverflow
+
     fonts.register(page)
     _fill_pad_header(page, group_rows, mapping)
 
@@ -324,10 +392,15 @@ def generate_pad_for_group(group_rows: list, mapping: dict = None, fonts: _Fonts
         _draw_lines(page, fonts, rect, comp["front1_first_baseline"], flow["front1"], mapping)
     # Front Part 1 slots with no size stay as the empty template box
 
-    for panel in mapping["panels"]:
+    for panel in panels:
+        lines = flow.get(panel["name"], [])
+        if panel.get("extra") and not any(lines):
+            continue                      # extra panel not needed -> leave the Pad area empty
         rect = fitz.Rect(panel["rect"])
         _show(page, rect, _find_template(panel["template"]))
-        _draw_lines(page, fonts, rect, panel["first_baseline"], flow[panel["name"]], mapping)
+        if panel.get("extra") and panel.get("label"):
+            _draw_panel_label(page, fonts, rect, panel["label"])
+        _draw_lines(page, fonts, rect, panel["first_baseline"], lines, mapping)
 
     data = pad_doc.tobytes()
     pad_doc.close()
