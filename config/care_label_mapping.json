@@ -219,7 +219,9 @@
     "block_marker": "Produced by",
     "block_min_panel": "front3",
     "made_in_marker": "Made in Bangladesh",
-    "made_gap_min_lines": 1
+    "made_gap_min_lines": 1,
+    "skupljanje_marker": "Skupljanje",
+    "skupljanje_gap_lines": 3
   },
   "header": [
     {
@@ -275,5 +277,6 @@
   "_extra_panels_comment": "'extra' panels (Front/Back Part 4, 5 ...) are not in the Pad templates; they are drawn only when a long Care Instructions text pushes the 'Produced by + address' block onto them, and only if they fit inside the Pad page width (Pad 1 fits Front 4 + Back 4, Pad 2 also Front 5).",
   "_block_comment": "The paragraph starting with composition.block_marker and everything after it (Produced by + importer addresses) is kept together in ONE panel: Front Part 3 (block_min_panel) or, if the Care Instructions text before it already reaches that panel, the next empty panel (Back 3, Front 4, ...).",
   "_made_in_comment": "The paragraph starting with composition.made_in_marker is anchored to the BOTTOM of the panel just before the 'Produced by' panel (e.g. bottom of Back Part 2 when Produced by is in Front Part 3). It needs made_gap_min_lines blank line(s) after the care text; if it does not fit, the Made-in/Produced-by pair moves one panel further.",
-  "_last_baseline_comment": "Last allowed text baseline in a panel. 296.0 keeps text just above the pink dash guide at the bottom of the Back panels (Back panels = 49 lines, Front panels = 46)."
+  "_last_baseline_comment": "Last allowed text baseline in a panel. 296.0 keeps text just above the pink dash guide at the bottom of the Back panels (Back panels = 49 lines, Front panels = 46).",
+  "_skupljanje_comment": "The Skupljanje (shrinkage) line is tied to the 'Made in Bangladesh' paragraph: it sits skupljanje_gap_lines blank lines ABOVE it (3 -> Skupljanje is 4 lines above the first Made-in line). Set 4 for one more line of space. If there is no Made-in / Produced-by block, Skupljanje stays in the normal text flow."
 }
