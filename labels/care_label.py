@@ -25,6 +25,8 @@ One Pad page =
       Anchored to the BOTTOM of the panel just before the Produced-by panel
       (bottom of Back Part 2 when Produced by is in Front Part 3, bottom of
       Front Part 3 when it is in Back Part 3, ...), like the sample file.
+      The "Skupljanje: po dužini ..." line sits 4 lines (skupljanje_gap_lines
+      = 3 blank lines) above the first Made-in line.
 
 Pad template choice (per group of sizes):
       <= 6 sizes -> Care_Label_Pad.pdf     (6 Front Part 1 slots)
@@ -214,6 +216,19 @@ def split_made_in(care_text: str, marker: str):
     if not m:
         return care_text, ""
     return care_text[:m.start()], care_text[m.start():]
+
+
+def split_line_out(text: str, marker: str):
+    """
+    Cut the line that starts with `marker` ("Skupljanje: ...") out of `text`.
+    Returns (text_without_that_line, that_line). No marker/match -> (text, "").
+    """
+    if not marker:
+        return text, ""
+    m = re.search(r"(?m)^[ \t]*" + re.escape(marker) + r"[^\n]*\n?", text)
+    if not m:
+        return text, ""
+    return text[:m.start()] + text[m.end():], m.group(0)
 
 
 def _trim_blank(lines: list) -> list:
@@ -420,13 +435,20 @@ def generate_pad_for_group(group_rows: list, mapping: dict = None, fonts: _Fonts
     comp = mapping["composition"]
     care_text, block_text = split_care_and_block(group_rows[0].get("Composition_Care", ""),
                                                  comp.get("block_marker", ""))
-    made_text = ""
+    made_text = skup_text = ""
     if block_text.strip():       # Made-in is anchored to the panel before 'Produced by'
         care_text, made_text = split_made_in(care_text, comp.get("made_in_marker", ""))
+        if made_text.strip():    # Skupljanje line rides along, a few lines above Made-in
+            care_text, skup_text = split_line_out(care_text, comp.get("skupljanje_marker", ""))
     wrap = lambda t: wrap_composition(t, fonts, comp["font_size"], comp["wrap_width"],
                                       comp.get("wide_prefixes", ()), comp.get("wide_width"))
+    made_lines = None
+    if made_text.strip():
+        made_lines = _trim_blank(wrap(made_text))
+        if skup_text.strip():
+            made_lines = _trim_blank(wrap(skup_text)) + [""] * comp.get("skupljanje_gap_lines", 3) + made_lines
     flow = flow_into_panels(wrap(care_text), wrap(block_text), mapping, panels,
-                            wrap(made_text) if made_text.strip() else None)  # may raise CareLabelOverflow
+                            made_lines)  # may raise CareLabelOverflow
 
     fonts.register(page)
     _fill_pad_header(page, group_rows, mapping)
