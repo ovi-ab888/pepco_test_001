@@ -171,20 +171,24 @@ def _template_name_for(entry: dict) -> str:
 
 selected_labels = []
 
-# ---- Block 1: General Items (Inner & Outer Sticker, Hangtag, Care Label) ----
+# ---- Block 1: General Items (Inner & Outer Sticker | Hangtag | Care Label — pasa pasi) ----
 with st.expander("General Items", expanded=True):
+    gi_col1, gi_col2, gi_col3 = st.columns(3)
+
     # Inner & Outer Sticker
-    if st.checkbox("Inner & Outer Sticker", key="chk_inner_outer"):
-        selected_labels.append("Inner & Outer Sticker")
+    with gi_col1:
+        if st.checkbox("Inner & Outer Sticker", key="chk_inner_outer"):
+            selected_labels.append("Inner & Outer Sticker")
 
     # Hangtag (upor-er editable table theke shorashori data ney)
     hangtag_rows = corrected_df.fillna("").to_dict(orient="records")
     _missing = [c for c in ("product_name", "PLN") if not any(str(r.get(c, "")).strip() for r in hangtag_rows)]
 
-    include_hangtag = st.checkbox("Hangtag", key="chk_hangtag", disabled=bool(_missing))
-    if _missing:
-        st.caption("Hangtag-er jonno 'Additional Data'-te Department/Product Type ar PLN Price din "
-                   f"(ekhono khali: {', '.join(_missing)}).")
+    with gi_col2:
+        include_hangtag = st.checkbox("Hangtag", key="chk_hangtag", disabled=bool(_missing))
+        if _missing:
+            st.caption("Hangtag-er jonno 'Additional Data'-te Department/Product Type ar PLN Price din "
+                       f"(ekhono khali: {', '.join(_missing)}).")
     if include_hangtag and not _missing:
         label_options["Hangtag"] = {
             "generate": lambda rows: hangtag_pad.generate_batch_pdf(rows),
@@ -198,10 +202,11 @@ with st.expander("General Items", expanded=True):
     care_rows = corrected_df.fillna("").to_dict(orient="records")
     _care_missing = care_label.missing_columns(care_rows)
 
-    include_care = st.checkbox("Care Label", key="chk_care_label", disabled=bool(_care_missing))
-    if _care_missing:
-        st.caption("Care Label-er jonno table-e ei column-gulo lagbe (ekhono khali/nei): "
-                   f"{', '.join(_care_missing)}")
+    with gi_col3:
+        include_care = st.checkbox("Care Label", key="chk_care_label", disabled=bool(_care_missing))
+        if _care_missing:
+            st.caption("Care Label-er jonno table-e ei column-gulo lagbe (ekhono khali/nei): "
+                       f"{', '.join(_care_missing)}")
     if include_care and not _care_missing:
         label_options["Care Label"] = {
             "generate": lambda rows: care_label.generate_batch_pdf(rows),
