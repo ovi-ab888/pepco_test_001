@@ -544,3 +544,32 @@ div[data-testid="stFormSubmitButton"] button p { color: var(--btn-fg) !important
 label[data-baseweb="checkbox"] > div:first-child { background-color: var(--well) !important; }
 [data-testid="stToggle"] input:checked + div,
 label[data-baseweb="checkbox"] input:checked + div { background-color: #1a1a1a !important; }
+
+
+/* ============================================================
+   14. Final polish (v5)
+   ============================================================ */
+
+/* Number input (Material %): বক্স ফিরিয়ে আনা */
+[data-testid="stNumberInputContainer"] {
+  background: var(--well) !important;
+  box-shadow: var(--inset) !important;
+  border-radius: 12px !important;
+  border: none !important;
+}
+[data-testid="stNumberInputContainer"] div[data-baseweb="input"],
+[data-testid="stNumberInputContainer"] div[data-baseweb="base-input"] {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Expander click করলে মোটা কালো/ধূসর focus ring বাদ → নরম deboss */
+[data-testid="stExpander"] summary:focus,
+[data-testid="stExpander"] summary:focus-visible {
+  outline: none !important;
+  box-shadow: var(--inset) !important;
+  border-radius: 14px !important;
+}
+
+/* অপশনাল: Pepco logo সাদাকালো চাইলে নিচের লাইনের comment তুলে দিন */
+/* .main-header img { filter: grayscale(1) contrast(1.05) !important; } */
