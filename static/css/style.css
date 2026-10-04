@@ -754,3 +754,72 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--text) !importa
 /* ---------- Scrollbar ---------- */
 ::-webkit-scrollbar-track { background: var(--bg) !important; }
 ::-webkit-scrollbar-thumb { background: var(--muted) !important; border-radius: 10px; }
+
+
+/* ============================================================
+   Emboss v2 fixes — paste AFTER the previous theme block
+   ============================================================ */
+
+/* 1. Stronger emboss / deboss contrast */
+:root {
+  --bg:#141414; --surface:#1a1a1a; --hi:#2e2e2e; --lo:#000000;
+  --raise:    8px 8px 18px var(--lo), -6px -6px 16px var(--hi);
+  --raise-sm: 4px 4px 10px var(--lo), -3px -3px 9px var(--hi);
+  --inset:    inset 4px 4px 9px var(--lo), inset -3px -3px 8px var(--hi);
+}
+@media (prefers-color-scheme: light) {
+  :root { --bg:#e6e6e6; --surface:#e6e6e6; --hi:#ffffff; --lo:#bdbdbd; }
+}
+/* হালকা top-edge highlight = আসল emboss কিনারা */
+.main-header { border-top: 1px solid rgba(255,255,255,0.06) !important; }
+
+/* 2. Inputs / Selectbox: নীলচে tint বাদ, শুধু একটাই deboss layer */
+div[data-baseweb="select"] > div,
+div[data-baseweb="input"] {
+  background: var(--bg) !important;
+  background-color: var(--bg) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: var(--inset) !important;
+}
+div[data-baseweb="base-input"],
+[data-testid="stNumberInputContainer"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+[data-testid="stNumberInputStepUp"],
+[data-testid="stNumberInputStepDown"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text) !important;
+}
+
+/* 3. Alerts: সবুজ/লাল বাদ, grayscale + deboss */
+[data-testid="stAlert"] {
+  background: var(--bg) !important;
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: var(--inset) !important;
+  filter: grayscale(1);              /* ✅ emoji-ও ধূসর হবে */
+}
+[data-testid="stAlert"] > div,
+[data-testid="stAlertContainer"] {
+  background: transparent !important;
+}
+
+/* 4. Heading hierarchy (ছোট ও পরিষ্কার) */
+.stMarkdown h1, [data-testid="stHeading"] h1 { font-size: 1.6rem !important; }
+.stMarkdown h2, [data-testid="stHeading"] h2 { font-size: 1.25rem !important; font-weight: 600 !important; }
+.stMarkdown h3, [data-testid="stHeading"] h3 {
+  font-size: 0.95rem !important; font-weight: 600 !important;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted) !important;
+}
+
+/* 5. Login: double border সরানো */
+[data-testid="stForm"] { border: none !important; padding: 0 !important; }
+
+/* 6. Logo badge + title emoji B&W */
+.main-header img { border-radius: 10px; box-shadow: var(--raise-sm); }
+.main-header h1  { filter: grayscale(1); }   /* 🔒 emoji ধূসর */
