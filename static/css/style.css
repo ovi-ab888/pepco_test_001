@@ -573,3 +573,29 @@ label[data-baseweb="checkbox"] input:checked + div { background-color: #1a1a1a !
 
 /* অপশনাল: Pepco logo সাদাকালো চাইলে নিচের লাইনের comment তুলে দিন */
 /* .main-header img { filter: grayscale(1) contrast(1.05) !important; } */
+
+
+/* ============================================================
+   15. Login card — উঁচু emboss card (auth.py-তে key="login_card" লাগবে)
+   ============================================================ */
+.st-key-login_card {
+  background: var(--face) !important;
+  border: none !important;
+  border-radius: 22px !important;
+  box-shadow: var(--raise) !important;
+  padding: 1.6rem 1.4rem !important;
+  margin-top: 1rem;
+}
+.st-key-login_card > div { border: none !important; }
+.st-key-login_card [data-testid="stVerticalBlockBorderWrapper"] {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+.st-key-login_card .card-title {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 1rem;
+  font-weight: 700;
+  text-shadow: 1px 1px 1px var(--hi);
+}
