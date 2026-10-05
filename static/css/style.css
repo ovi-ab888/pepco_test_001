@@ -621,3 +621,23 @@ label[data-baseweb="checkbox"] input:checked + div { background-color: #1a1a1a !
   font-weight: 700;
   text-shadow: 1px 1px 1px var(--hi);
 }
+
+
+/* ============================================================
+   17. Footer polish — ছোট, ধূসর লেখা + ভেতরে-বসা (deboss) রেখা
+   ============================================================ */
+.stApp .footer-border .footer-text {
+  font-size: 12px !important;
+  letter-spacing: 0.06em;
+  color: var(--muted) !important;
+}
+.footer-border { border-top: none !important; }
+.footer-border::before {
+  content: "";
+  display: block;
+  height: 2px;
+  border-radius: 2px;
+  margin-bottom: 14px;
+  background: var(--lo);
+  box-shadow: 0 1px 0 var(--hi);
+}
