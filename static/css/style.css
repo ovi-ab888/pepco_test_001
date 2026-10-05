@@ -599,3 +599,25 @@ label[data-baseweb="checkbox"] input:checked + div { background-color: #1a1a1a !
   font-weight: 700;
   text-shadow: 1px 1px 1px var(--hi);
 }
+
+
+/* ============================================================
+   16. Login card — auth.py না বদলেও কাজ করবে
+   ".card-title" ('Sign in' লেখা) যে সবচেয়ে ভেতরের box-এ আছে সেটাকেই উঁচু করে
+   ============================================================ */
+[data-testid="stVerticalBlock"]:has(.card-title):not(:has([data-testid="stVerticalBlock"] .card-title)),
+.st-key-login_card {
+  background: var(--face) !important;
+  border: none !important;
+  border-radius: 22px !important;
+  box-shadow: var(--raise) !important;
+  padding: 1.8rem 1.6rem !important;
+  margin-top: 1.5rem !important;
+}
+[data-testid="stVerticalBlock"]:has(.card-title):not(:has([data-testid="stVerticalBlock"] .card-title)) .card-title {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 1rem;
+  font-weight: 700;
+  text-shadow: 1px 1px 1px var(--hi);
+}
