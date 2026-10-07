@@ -27,6 +27,19 @@ import os
 # avoiding the sub-pixel edge blur that antialiasing introduces.
 fitz.TOOLS.set_aa_level(0)
 
+
+def _finalize_doc_bytes(doc):
+    """
+    Final save: subset embedded fonts + merge duplicate objects + compress.
+    Without this each page keeps FULL copies of Arial and PEPCO_Ovi (insert_font
+    runs per page), which made Hangtag Pads 8-12 MB. Now well under 1 MB/page set.
+    """
+    try:
+        doc.subset_fonts()   # TrueType only; never fail the label if it can't
+    except Exception:
+        pass
+    return doc.tobytes(garbage=4, deflate=True, clean=True)
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "Hangtag", "back_side.pdf")
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "hangtag_back_mapping.json")
@@ -220,7 +233,7 @@ def fill_back_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, ma
 
 def generate_single(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH):
     doc = fill_back_side(row, template_path, config_path)
-    data = doc.tobytes()
+    data = _finalize_doc_bytes(doc)
     doc.close()
     return data
 
@@ -236,7 +249,7 @@ def generate_batch_pdf(rows, template_path=TEMPLATE_PATH, config_path=CONFIG_PAT
         doc = fill_back_side(row, template_path, config_path)
         out.insert_pdf(doc)
         doc.close()
-    data = out.tobytes()
+    data = _finalize_doc_bytes(out)
     out.close()
     return data
 
