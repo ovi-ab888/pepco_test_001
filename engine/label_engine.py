@@ -173,6 +173,7 @@ def draw_ean13_vector(page, x0, y0, code13, target_width, color=(0, 0, 0),
             params = _EAN_L[content[i]] if lg == "L" else _EAN_G[content[i]]
             add_rect(params[0], params[1], h)
             add_rect(params[2], params[3], h)
+            state["x"] += gap_d                  # advance one digit (7 modules)
 
     state["x"] += gap_d
     draw_sep(tall_h)                         # start guard (tall)
@@ -182,7 +183,7 @@ def draw_ean13_vector(page, x0, y0, code13, target_width, color=(0, 0, 0),
     state["x"] += block * 5
     for j in range(7, 12):                   # digits 7-11, normal height
         draw_right_digit(code13[j], height)
-    state["x"] += gap_d
+        state["x"] += gap_d                  # advance one digit (7 modules)
     draw_right_digit(code13[12], height)     # checksum digit, normal height
     state["x"] += block * 6
     draw_sep(tall_h)                         # end guard (tall)
