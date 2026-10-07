@@ -30,14 +30,17 @@ fitz.TOOLS.set_aa_level(0)
 
 def _finalize_doc_bytes(doc):
     """
-    Final save: subset embedded fonts + merge duplicate objects + compress.
-    Without this each page keeps FULL copies of Arial and PEPCO_Ovi (insert_font
-    runs per page), which made Hangtag Pads 8-12 MB. Now well under 1 MB/page set.
+    Final save: merge duplicate objects + compress (NO font subsetting).
+
+    insert_font runs on every page, so the same full Arial / PEPCO_Ovi / Tahoma
+    font was stored once PER PAGE (Hangtag 8-12 MB). garbage=4 merges those
+    identical copies into ONE, so each font is embedded a single time.
+
+    We deliberately do NOT call doc.subset_fonts(): subsetting renames fonts
+    with a random prefix (e.g. "OISKSG+PEPCO_Ovi Ovi"), and Illustrator then
+    can't match them to the installed fonts -> pink "missing font" highlight
+    and pictograms turn into plain letters.
     """
-    try:
-        doc.subset_fonts()   # TrueType only; never fail the label if it can't
-    except Exception:
-        pass
     return doc.tobytes(garbage=4, deflate=True, clean=True)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # repo root
