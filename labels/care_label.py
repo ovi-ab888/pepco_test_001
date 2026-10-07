@@ -259,7 +259,9 @@ def flow_into_panels(care_lines: list, block_lines: list, mapping: dict, panels:
     order = [("front1", comp["front1_first_baseline"])] + \
             [(p["name"], p["first_baseline"]) for p in panels]
     names = [n for n, _ in order]
-    caps = [_capacity(first, last, pitch) for _, first in order]
+    # a panel may carry its own "last_baseline" (Back panels: keep 5 mm above the pink dash line)
+    lasts = [last] + [p.get("last_baseline", last) for p in panels]
+    caps = [_capacity(first, lasts[i], pitch) for i, (_, first) in enumerate(order)]
 
     out, i, last_used, used_in_last = {}, 0, -1, 0
     for idx, (name, first) in enumerate(order):
