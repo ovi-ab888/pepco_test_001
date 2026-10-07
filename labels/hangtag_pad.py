@@ -93,7 +93,7 @@ def generate_pad_repeat_back(row, front_bytes=None, back_bytes=None, template_pa
         pad_page.show_pdf_page(fitz.Rect(rect_coords), back_src, 0)
     back_src.close()
 
-    data = pad_doc.tobytes()
+    data = hb._finalize_doc_bytes(pad_doc)
     pad_doc.close()
     return data
 
@@ -240,7 +240,7 @@ def generate_pad_for_group(group_rows, template_path=None, config_path=CONFIG_PA
     # Remaining back_rects (if group has < 7 rows) are simply left blank —
     # the template's own empty box shows there, matching a partial pad.
 
-    data = pad_doc.tobytes()
+    data = hb._finalize_doc_bytes(pad_doc)
     pad_doc.close()
     return data
 
@@ -267,6 +267,6 @@ def generate_batch_pdf(rows, template_path=None, config_path=CONFIG_PATH):
         pad_single = fitz.open("pdf", pad_bytes)
         out.insert_pdf(pad_single)
         pad_single.close()
-    data = out.tobytes()
+    data = hb._finalize_doc_bytes(out)
     out.close()
     return data
