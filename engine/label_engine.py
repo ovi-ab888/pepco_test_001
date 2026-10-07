@@ -336,7 +336,7 @@ def fill_single_label(template_path: str, row: dict, field_config: list) -> byte
                 )
                 page.insert_image(fitz.Rect(x, y, x + w, y + h), stream=img_bytes)
 
-    out = doc.tobytes()
+    out = doc.tobytes(garbage=4, deflate=True)
     doc.close()
     return out
 
@@ -437,9 +437,33 @@ def fill_placeholders_by_search(source, row: dict, font: str = "helv",
         page.insert_text((x, y), value, fontsize=font_size, color=color,
                          fontname=fontname, fontfile=fontfile, morph=morph)
 
-    out = doc.tobytes()
+    out = doc.tobytes(garbage=4, deflate=True)
     doc.close()
     return out
+
+
+def finalize_doc_bytes(doc) -> bytes:
+    """
+    Final save for a fitz.Document: subset embedded fonts, merge duplicate
+    objects, compress streams. Without this every page keeps its own FULL copy
+    of each TTF font (Arial / PEPCO_Ovi), which made Hangtag PDFs 8-12 MB.
+    Normal result: under 1 MB.
+    """
+    try:
+        doc.subset_fonts()   # TrueType only; others are left untouched
+    except Exception:
+        pass                 # never fail the label because of subsetting
+    return doc.tobytes(garbage=4, deflate=True, clean=True)
+
+
+def compress_pdf_bytes(pdf_bytes: bytes) -> bytes:
+    """Compress an already-built PDF (bytes in -> smaller bytes out).
+    Call this on the FINAL pdf of any label, e.g. the Hangtag pad."""
+    doc = fitz.open("pdf", pdf_bytes)
+    try:
+        return finalize_doc_bytes(doc)
+    finally:
+        doc.close()
 
 
 def compose_pdf_into_rect(base_doc, page_index, rect, source_pdf_bytes):
@@ -463,6 +487,6 @@ def generate_multipage_pdf(template_path: str, rows: list, field_config: list) -
         single_doc = fitz.open("pdf", single_bytes)
         merged.insert_pdf(single_doc)
         single_doc.close()
-    out = merged.tobytes()
+    out = finalize_doc_bytes(merged)
     merged.close()
     return out
