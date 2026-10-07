@@ -175,7 +175,6 @@ def draw_ean13_vector(page, x0, y0, code13, target_width, color=(0, 0, 0),
             add_rect(params[2], params[3], h)
             state["x"] += gap_d                  # advance one digit (7 modules)
 
-    state["x"] += gap_d
     draw_sep(tall_h)                         # start guard (tall)
     state["x"] += block * 4
     draw_left_group(code13[0:7], height)     # digits 1-6, normal height
