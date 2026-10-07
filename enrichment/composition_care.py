@@ -342,7 +342,7 @@ def render_composition_care_section():
     # ---------- Build Composition_Care ----------
     combined_care = ""
     if final_composition_text and care_inst_translated:
-        combined_care = f"{final_composition_text}\n\n\n{care_inst_translated}"
+        combined_care = f"{final_composition_text}\n\n{care_inst_translated}"
     elif final_composition_text:
         combined_care = final_composition_text
     elif care_inst_translated:
