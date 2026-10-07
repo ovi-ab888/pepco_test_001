@@ -341,9 +341,14 @@ def fill_single_label(template_path: str, row: dict, field_config: list) -> byte
     return out
 
 
+MM_TO_PT = 72 / 25.4   # 1 mm = 2.8346 pt
+PLACEHOLDER_MAX_WIDTH_MM = 44   # replaced text is never wider than this
+
+
 def fill_placeholders_by_search(source, row: dict, font: str = "helv",
                                 font_size: float = 12, color=K100,
-                                token_columns: list = None) -> bytes:
+                                token_columns: list = None,
+                                max_width_mm: float = PLACEHOLDER_MAX_WIDTH_MM) -> bytes:
     """
     Fills a template by SEARCHING for literal "{ColumnName}" text on the
     page and replacing every occurrence with that column's value — no
@@ -356,6 +361,11 @@ def fill_placeholders_by_search(source, row: dict, font: str = "helv",
     The placeholder text is REALLY removed from the PDF (redaction with no
     fill) — no white box is drawn over it, so nothing is left hidden
     underneath the new value. The value is written in CMYK K100.
+
+    Width limit: the written value is never wider than max_width_mm
+    (default 44 mm). Longer text is squeezed horizontally (horizontal
+    scaling) automatically; font size stays the same. Pass
+    max_width_mm=None to turn the limit off.
 
     source: a template file path (str), OR already-filled PDF bytes — pass
     bytes here to chain this after fill_single_label(), e.g. fill the header
@@ -413,11 +423,19 @@ def fill_placeholders_by_search(source, row: dict, font: str = "helv",
         except Exception:
             text_width = fitz.get_text_length(value, fontname=fontname, fontsize=font_size)
 
-        # center the value within the placeholder's own bounding box
-        x = rect.x0 + (rect.width - text_width) / 2
+        # Width limit: text wider than max_width_mm is squeezed HORIZONTALLY
+        # (font size / height stay the same). Narrower text is left as is.
+        sx = 1.0
+        if max_width_mm and text_width > max_width_mm * MM_TO_PT:
+            sx = (max_width_mm * MM_TO_PT) / text_width
+        final_width = text_width * sx
+
+        # center the (possibly squeezed) value within the placeholder's own bounding box
+        x = rect.x0 + (rect.width - final_width) / 2
         y = rect.y1 - (rect.height - font_size) / 2   # roughly centered baseline
+        morph = (fitz.Point(x, y), fitz.Matrix(sx, 1)) if sx < 1.0 else None
         page.insert_text((x, y), value, fontsize=font_size, color=color,
-                         fontname=fontname, fontfile=fontfile)
+                         fontname=fontname, fontfile=fontfile, morph=morph)
 
     out = doc.tobytes()
     doc.close()
