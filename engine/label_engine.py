@@ -1,25 +1,27 @@
 """
 engine/label_engine.py
+
 Shared core engine used by every label type (inner, outer, ...).
 Takes a FIXED template PDF + one Excel row -> returns a filled PDF (bytes).
 
 Field config entry:
 {
-    "name": "Excel_Column_Name",
-    "type": "text" | "barcode" | "qr",
-    "x": 10, "y": 20,                 # position in PDF points, top-left origin
-    "font_size": 8,                   # text only
-    "prefix": "Style: ",              # optional, text only
-    "suffix": "",                     # optional, text only
-    "cover": [x0, y0, x1, y1],        # optional: white-out a placeholder area first
-    "width": 100, "height": 30,       # barcode only
-    "size": 60,                       # qr only
-    "font": "arial",                  # optional, key into FONTS dict below
+  "name": "Excel_Column_Name",
+  "type": "text" | "barcode" | "qr",
+  "x": 10, "y": 20,              # position in PDF points, top-left origin
+  "font_size": 8,                # text only
+  "prefix": "Style: ",           # optional, text only
+  "suffix": "",                  # optional, text only
+  "cover": [x0, y0, x1, y1],     # optional: white-out a placeholder area first
+  "width": 100, "height": 30,    # barcode only
+  "size": 60,                    # qr only
+  "font": "arial",               # optional, key into FONTS dict below
 }
 """
 
 import io
 import os
+
 import fitz  # PyMuPDF
 import qrcode
 import barcode
@@ -40,11 +42,11 @@ FONTS = {
 
 # PyMuPDF built-in fonts — always available, no file needed
 BUILTIN_FONTS = {
-    "helv": "helv",        # Helvetica
-    "hebo": "hebo",        # Helvetica-Bold
-    "heit": "heit",        # Helvetica-Oblique
-    "cour": "cour",        # Courier
-    "tiro": "tiro",        # Times Roman
+    "helv": "helv",   # Helvetica
+    "hebo": "hebo",   # Helvetica-Bold
+    "heit": "heit",   # Helvetica-Oblique
+    "cour": "cour",   # Courier
+    "tiro": "tiro",   # Times Roman
 }
 
 
@@ -56,9 +58,8 @@ def _make_qr_image(data: str) -> bytes:
 
 
 def _make_barcode_image(data: str, barcode_type: str = "code128", color_hex: str = "#000000",
-                         guard_height_factor: float = 1.0, show_small_text: bool = False) -> bytes:
+                        guard_height_factor: float = 1.0, show_small_text: bool = False) -> bytes:
     data = str(data).strip()
-
     if barcode_type == "ean13":
         digits = "".join(ch for ch in data if ch.isdigit())
         if len(digits) >= 13:
@@ -121,7 +122,7 @@ _EAN_DICT_R = {
 
 
 def draw_ean13_vector(page, x0, y0, code13, target_width, color=(0, 0, 0),
-                       height_ratio=0.168, block_ratio=0.00472, guard_extra=1.15):
+                      height_ratio=0.168, block_ratio=0.00472, guard_extra=1.15):
     """
     Draw a 13-digit EAN13 barcode as real vector rectangles directly on the PDF
     page — same bar-position math as the Illustrator JSX (CreateBarcodeBars),
@@ -130,8 +131,8 @@ def draw_ean13_vector(page, x0, y0, code13, target_width, color=(0, 0, 0),
     extend further down) — this is what makes it read as a proper EAN13
     symbol instead of a flat block of bars.
 
-    x0, y0        = top-left of the barcode in PDF points (page coords)
-    target_width  = desired total barcode width in points
+    x0, y0 = top-left of the barcode in PDF points (page coords)
+    target_width = desired total barcode width in points
     Returns (total_width_drawn, tall_bar_height) for layout purposes.
     """
     code13 = "".join(ch for ch in str(code13) if ch.isdigit())
@@ -172,19 +173,19 @@ def draw_ean13_vector(page, x0, y0, code13, target_width, color=(0, 0, 0),
             params = _EAN_L[content[i]] if lg == "L" else _EAN_G[content[i]]
             add_rect(params[0], params[1], h)
             add_rect(params[2], params[3], h)
-            state["x"] += gap_d
 
-    draw_sep(tall_h)                              # start guard (tall)
+    state["x"] += gap_d
+    draw_sep(tall_h)                         # start guard (tall)
     state["x"] += block * 4
-    draw_left_group(code13[0:7], height)          # digits 1-6, normal height
-    draw_sep(tall_h)                              # center guard (tall)
+    draw_left_group(code13[0:7], height)     # digits 1-6, normal height
+    draw_sep(tall_h)                         # center guard (tall)
     state["x"] += block * 5
-    for j in range(7, 12):                        # digits 7-11, normal height
+    for j in range(7, 12):                   # digits 7-11, normal height
         draw_right_digit(code13[j], height)
-        state["x"] += gap_d
-    draw_right_digit(code13[12], height)          # checksum digit, normal height
+    state["x"] += gap_d
+    draw_right_digit(code13[12], height)     # checksum digit, normal height
     state["x"] += block * 6
-    draw_sep(tall_h)                              # end guard (tall)
+    draw_sep(tall_h)                         # end guard (tall)
 
     return state["x"], tall_h
 
@@ -198,6 +199,17 @@ def _clean(value):
     return str(value)
 
 
+K100 = (0, 0, 0, 1)   # CMYK: C0 M0 Y0 K100
+
+
+def _norm_color(color):
+    """RGB/gray black ke CMYK K100 e convert kore. Onno color (jemon CMYK) jemon ache temon thake."""
+    c = tuple(v / 255 if v > 1 else v for v in color)
+    if len(c) in (1, 3) and all(v == 0 for v in c):
+        return K100
+    return c
+
+
 def expand_tc_barcode_variants(row: dict, max_variants: int = 7) -> list:
     """
     A single Excel row can carry several TC_Number_stN / Barcode_stN pairs
@@ -207,6 +219,7 @@ def expand_tc_barcode_variants(row: dict, max_variants: int = 7) -> list:
     TC_Number_st1 / Barcode_st1 get overwritten per page so the existing
     single-variant field configs (which read TC_Number_st1/Barcode_st1) work
     unchanged. Returns a list of row dicts, one per page.
+
     Falls back to [row] unchanged if no stN pairs are filled at all (keeps
     plain single-TC rows working exactly as before).
     """
@@ -236,7 +249,7 @@ def fill_single_label(template_path: str, row: dict, field_config: list) -> byte
         if ftype == "fixed_text":
             font_size = field.get("font_size", 8)
             color = field.get("color", [0, 0, 0, 1])
-            color = tuple(c / 255 if c > 1 else c for c in color)
+            color = _norm_color(color)
             font_key = field.get("font", "helv")
             fontname = "helv"
             fontfile = None
@@ -254,7 +267,6 @@ def fill_single_label(template_path: str, row: dict, field_config: list) -> byte
         if name not in row:
             continue
         value = _clean(row[name])
-
         x, y = field["x"], field["y"]
 
         cover = field.get("cover")
@@ -264,9 +276,8 @@ def fill_single_label(template_path: str, row: dict, field_config: list) -> byte
         if ftype == "text":
             font_size = field.get("font_size", 8)
             color = field.get("color", [0, 0, 0, 1])
-            color = tuple(c / 255 if c > 1 else c for c in color)
+            color = _norm_color(color)
             text_out = field.get("prefix", "") + value + field.get("suffix", "")
-
             font_key = field.get("font", "helv")
             fontname = "helv"
             fontfile = None
@@ -331,8 +342,8 @@ def fill_single_label(template_path: str, row: dict, field_config: list) -> byte
 
 
 def fill_placeholders_by_search(source, row: dict, font: str = "helv",
-                                 font_size: float = 12, color=(0, 0, 0, 1),
-                                 token_columns: list = None) -> bytes:
+                                font_size: float = 12, color=K100,
+                                token_columns: list = None) -> bytes:
     """
     Fills a template by SEARCHING for literal "{ColumnName}" text on the
     page and replacing every occurrence with that column's value — no
@@ -341,6 +352,10 @@ def fill_placeholders_by_search(source, row: dict, font: str = "helv",
     name printed on every panel of a multi-panel size tag), or where many
     templates share a placeholder but each has a different layout, so one
     coordinate-based config can't cover all of them.
+
+    The placeholder text is REALLY removed from the PDF (redaction with no
+    fill) — no white box is drawn over it, so nothing is left hidden
+    underneath the new value. The value is written in CMYK K100.
 
     source: a template file path (str), OR already-filled PDF bytes — pass
     bytes here to chain this after fill_single_label(), e.g. fill the header
@@ -359,37 +374,50 @@ def fill_placeholders_by_search(source, row: dict, font: str = "helv",
     doc = fitz.open(source) if isinstance(source, str) else fitz.open("pdf", source)
     page = doc[0]
 
-    fontname = "helv"
-    fontfile = None
+    fontname, fontfile = "helv", None
     if font in FONTS and os.path.exists(FONTS[font]):
-        fontname = font
-        fontfile = FONTS[font]
+        fontname, fontfile = font, FONTS[font]
     elif font in BUILTIN_FONTS:
         fontname = BUILTIN_FONTS[font]
 
+    color = _norm_color(color)
     keys_to_check = token_columns if token_columns is not None else list(row.keys())
 
+    # PASS 1: find every placeholder, remember its rect + the value to write
+    jobs = []
     for key in keys_to_check:
         if key not in row:
             continue
-        token = "{" + str(key) + "}"
-        matches = page.search_for(token)
-        if not matches:
-            continue
         value = _clean(row[key])
+        for rect in page.search_for("{" + str(key) + "}"):
+            jobs.append((rect, value))
 
-        for rect in matches:
-            page.draw_rect(rect, color=None, fill=(1, 1, 1))  # cover the placeholder text
-            try:
-                font_obj = fitz.Font(fontfile=fontfile) if fontfile else fitz.Font(fontname)
-                text_width = font_obj.text_length(value, fontsize=font_size)
-            except Exception:
-                text_width = fitz.get_text_length(value, fontname=fontname, fontsize=font_size)
-            # center the value within the placeholder's own bounding box
-            x = rect.x0 + (rect.width - text_width) / 2
-            y = rect.y1 - (rect.height - font_size) / 2  # roughly centered baseline
-            page.insert_text((x, y), value, fontsize=font_size, color=color,
-                              fontname=fontname, fontfile=fontfile)
+    # PASS 2: remove the placeholder text from the file (fill=False -> no white box)
+    for rect, _ in jobs:
+        inner = fitz.Rect(rect.x0 + 0.5, rect.y0 + 1, rect.x1 - 0.5, rect.y1 - 1)
+        page.add_redact_annot(inner, fill=False)
+    if jobs:
+        try:
+            page.apply_redactions(
+                images=fitz.PDF_REDACT_IMAGE_NONE,        # don't touch template images
+                graphics=fitz.PDF_REDACT_LINE_ART_NONE,   # don't touch template vector artwork
+            )
+        except (TypeError, AttributeError):               # older PyMuPDF versions
+            page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
+
+    # PASS 3: write the new text AFTER redaction (otherwise it would be removed too)
+    for rect, value in jobs:
+        try:
+            font_obj = fitz.Font(fontfile=fontfile) if fontfile else fitz.Font(fontname)
+            text_width = font_obj.text_length(value, fontsize=font_size)
+        except Exception:
+            text_width = fitz.get_text_length(value, fontname=fontname, fontsize=font_size)
+
+        # center the value within the placeholder's own bounding box
+        x = rect.x0 + (rect.width - text_width) / 2
+        y = rect.y1 - (rect.height - font_size) / 2   # roughly centered baseline
+        page.insert_text((x, y), value, fontsize=font_size, color=color,
+                         fontname=fontname, fontfile=fontfile)
 
     out = doc.tobytes()
     doc.close()
