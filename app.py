@@ -63,22 +63,183 @@ if not pdf_files:
     st.stop()
 
 # -------------------------------
+# 1b. Missing-data helpers (extractor fail korle user-er kach theke input)
+# -------------------------------
+GLOBAL_REQUIRED = {  # PDF-er shob row-e same value
+    "Order_ID": "Order ID",
+    "Style": "Style (Item No)",
+    "Colour": "Colour",
+    "Item_name_English": "Item name (English)",
+    "Season": "Season (e.g. SS27)",
+    "Collection": "Collection name",
+    "Supplier_name": "Supplier name",
+}
+ROW_REQUIRED = {  # row-wise alada value
+    "Sizes": "Size",
+    "SKU": "SKU",
+    "barcode": "Barcode",
+}
+_MISSING = {"", "UNKNOWN", "NAN", "NONE", "NULL"}
+
+# Manual-entry fallback table-er columns (extractor-er row key-er sathe milano)
+MANUAL_COLUMNS = [
+    "Order_ID", "Style", "Colour", "Supplier_product_code", "Item_classification",
+    "Supplier_name", "today_date", "Item_name_English", "Item_name_EN", "Season",
+    "Sizes", "Collection", "Colour_SKU", "Style_Merch_Season", "Batch", "SKU",
+    "barcode", "cm_size",
+]
+
+
+def _is_missing(v) -> bool:
+    return pd.isna(v) or str(v).strip().upper() in _MISSING
+
+
+def _store_extracted(df, names):
+    """Extracted (ba manual) df ke session-e rakhe — original flow-er moto."""
+    df = df.reset_index(drop=True)
+    for c in list(GLOBAL_REQUIRED) + list(ROW_REQUIRED):
+        if c not in df.columns:
+            df[c] = ""
+    if "_temp_sku_for_filename" not in df.columns:
+        df["_temp_sku_for_filename"] = "MANUAL"
+    if "_pl_price_detected" not in df.columns:
+        df["_pl_price_detected"] = ""
+    df["Designer"] = auth.get_display_name()  # from the logged-in user, editable below
+    st.session_state["pdf_group_keys"] = (
+        df["_temp_sku_for_filename"].fillna("MANUAL").astype(str).tolist()
+    )
+    st.session_state["pdf_filename_row"] = df.iloc[0].to_dict()
+    st.session_state["pdf_pl_price"] = df["_pl_price_detected"].iloc[0]
+    st.session_state["pdf_extracted_df"] = df.drop(
+        columns=["_temp_sku_for_filename", "_pl_price_detected"]
+    )
+    st.session_state["pdf_uploader_names"] = names
+    st.session_state["pdf_df_version"] = st.session_state.get("pdf_df_version", 0) + 1
+
+
+def _manual_entry_fallback(names):
+    """Extractor PDF-e puro fail korle: user nijei data lekhe."""
+    st.error("Extractor couldn't read this PDF automatically. Please enter the data below.")
+    blank = pd.DataFrame([{c: "" for c in MANUAL_COLUMNS}])
+    with st.form("pdf_manual_form"):
+        edited = st.data_editor(
+            blank, num_rows="dynamic", use_container_width=True, key="pdf_manual_editor"
+        )
+        ok = st.form_submit_button("Use this data")
+    if ok:
+        edited = edited.fillna("")
+        edited = edited[edited.apply(lambda r: any(str(v).strip() for v in r), axis=1)]
+        if edited.empty:
+            st.warning("Please fill at least one row.")
+        else:
+            edited = edited.copy()
+            edited["_temp_sku_for_filename"] = "MANUAL"
+            _store_extracted(edited, names)
+            st.rerun()
+    st.stop()
+
+
+def _find_missing(df) -> dict:
+    out = {}
+    for col in list(GLOBAL_REQUIRED) + list(ROW_REQUIRED):
+        if col not in df.columns:
+            continue
+        idx = [i for i, v in df[col].items() if _is_missing(v)]
+        if idx:
+            out[col] = idx
+    return out
+
+
+def _render_missing_section(df) -> bool:
+    """Missing field thakle user-er kach theke input ney.
+    True = shob thik (ba user 'continue anyway' chose korse) -> flow cholbe."""
+    missing = _find_missing(df)
+    if not missing:
+        return True
+
+    keys = st.session_state.get("pdf_group_keys", [])
+    if len(keys) != len(df):
+        keys = [str(i) for i in range(len(df))]
+    groups = {}
+    for i, k in enumerate(keys):
+        groups.setdefault(k, []).append(i)
+
+    st.warning("Some data couldn't be extracted from the PDF. Please fill in the missing fields.")
+
+    with st.form("pdf_missing_form"):
+        inputs = {}
+        for g_no, (gk, idxs) in enumerate(groups.items(), start=1):
+            g_missing = [
+                c for c in GLOBAL_REQUIRED
+                if c in missing and any(i in missing[c] for i in idxs)
+            ]
+            if not g_missing:
+                continue
+            first_oid = df.loc[idxs[0], "Order_ID"] if "Order_ID" in df.columns else ""
+            title = f"PDF {g_no}" + ("" if _is_missing(first_oid) else f" — {first_oid}")
+            st.markdown(f"**{title}**")
+            cols = st.columns(min(3, len(g_missing)))
+            for j, c in enumerate(g_missing):
+                with cols[j % len(cols)]:
+                    inputs[(gk, c)] = st.text_input(
+                        GLOBAL_REQUIRED[c], key=f"pdf_missing_{g_no}_{c}"
+                    )
+
+        row_cols = [c for c in ROW_REQUIRED if c in missing]
+        row_editor = None
+        if row_cols:
+            row_idx = sorted({i for c in row_cols for i in missing[c]})
+            st.markdown("**Row-wise missing values**")
+            sub = df.loc[row_idx, row_cols].copy()
+            for c in row_cols:
+                sub[c] = sub[c].apply(lambda v: "" if _is_missing(v) else str(v))
+            row_editor = st.data_editor(
+                sub, num_rows="fixed", use_container_width=True, key="pdf_missing_row_editor"
+            )
+        submitted = st.form_submit_button("Apply")
+
+    if submitted:
+        new = df.copy()
+        for (gk, c), val in inputs.items():
+            val = (val or "").strip()
+            if not val:
+                continue
+            for i in groups[gk]:
+                if _is_missing(new.at[i, c]):
+                    new.at[i, c] = val
+        if row_editor is not None:
+            for i in row_editor.index:
+                for c in row_cols:
+                    v = str(row_editor.at[i, c]).strip()
+                    if v and not _is_missing(v):
+                        new.at[i, c] = v
+        st.session_state["pdf_extracted_df"] = new
+        st.session_state["pdf_df_version"] = st.session_state.get("pdf_df_version", 0) + 1
+        st.rerun()
+
+    return st.checkbox("Continue with blank fields anyway", key="pdf_skip_missing")
+
+# -------------------------------
 # 2. ডেটা এক্সট্রাকশন
 # -------------------------------
 if (
     "pdf_extracted_df" not in st.session_state
     or st.session_state.get("pdf_uploader_names") != [f.name for f in pdf_files]
 ):
+    _names = [f.name for f in pdf_files]
     with st.spinner("Extracting data from PDF..."):
-        extracted_df = extractor.extract_rows_from_pdfs(pdf_files)
-    if extracted_df.empty:
-        st.error("Couldn't extract data from this PDF — check it's the right file type.")
-        st.stop()
-    extracted_df["Designer"] = auth.get_display_name()  # from the logged-in user, editable below
-    st.session_state["pdf_filename_row"] = extracted_df.iloc[0].to_dict()
-    st.session_state["pdf_pl_price"] = extracted_df["_pl_price_detected"].iloc[0]
-    st.session_state["pdf_extracted_df"] = extracted_df.drop(columns=["_temp_sku_for_filename", "_pl_price_detected"])
-    st.session_state["pdf_uploader_names"] = [f.name for f in pdf_files]
+        try:
+            extracted_df = extractor.extract_rows_from_pdfs(pdf_files)
+        except Exception as e:
+            st.warning(f"Extractor error: {e}")
+            extracted_df = pd.DataFrame()
+    if extracted_df is None or extracted_df.empty:
+        _manual_entry_fallback(_names)  # st.stop() inside
+    _store_extracted(extracted_df, _names)
+
+# Missing field thakle user-er kach theke input chao
+if not _render_missing_section(st.session_state["pdf_extracted_df"]):
+    st.stop()
 
 # -------------------------------
 # 3. ডেটা এডিটর
@@ -92,7 +253,7 @@ corrected_df = st.data_editor(
     enriched_df,
     use_container_width=True,
     num_rows="fixed",
-    key="pdf_data_editor",
+    key=f"pdf_data_editor_{st.session_state.get('pdf_df_version', 0)}",
 )
 
 
