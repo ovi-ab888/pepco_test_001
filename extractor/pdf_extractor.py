@@ -78,7 +78,7 @@ def extract_pl_sales_price_from_pdf(pages_text):
 #   "DESSERT TRIP - SS27 - 112"      -> DESSERT TRIP
 # ================================================================
 _SEASON_RE = re.compile(r"[A-Za-z]{2}\d{2}")          # SS27, AW26
-_TYPE_PREFIXES = {"COL", "COLL", "COLLECTION", "CLT"}  # leading TYPE tokens
+_TYPE_PREFIXES = {"COL", "COLL", "COLLECTION", "EV", "CLT"}  # leading TYPE tokens
 
 def extract_collection_value(raw_text):
     if not raw_text:
