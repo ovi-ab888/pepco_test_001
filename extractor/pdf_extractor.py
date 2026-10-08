@@ -73,20 +73,36 @@ def extract_pl_sales_price_from_pdf(pages_text):
 
 
 # ================================================================
-#  COLLECTION  (new enrichment field — TYPE - NAME - SEASON - CODE)
+# COLLECTION  ([TYPE -] NAME - SEASON - CODE)
+#   "COL - DOUBLE TAKE - SS27 - 131" -> DOUBLE TAKE
+#   "DESSERT TRIP - SS27 - 112"      -> DESSERT TRIP
 # ================================================================
+_SEASON_RE = re.compile(r"[A-Za-z]{2}\d{2}")          # SS27, AW26
+_TYPE_PREFIXES = {"COL", "COLL", "COLLECTION", "CLT"}  # leading TYPE tokens
+
 def extract_collection_value(raw_text):
-    parts = [p.strip() for p in raw_text.split("-") if p.strip()]
+    if not raw_text:
+        return "UNKNOWN"
+
+    # " - " (space-hyphen-space) diye split, jate MINI-ME er moto name na bhange
+    parts = [p.strip() for p in re.split(r"\s+-\s+", raw_text.strip()) if p.strip()]
     if not parts:
         return "UNKNOWN"
-    parts = parts[1:]  # prothom part (TYPE) skip
-    for p in parts:
-        if re.fullmatch(r"[A-Za-z]{2}\d{2}", p):  # SEASON (SS27, AW26) skip
-            continue
-        if p.isdigit():  # CODE skip
-            continue
-        return p
-    return "UNKNOWN"
+
+    # Season er age-r ongsho = TYPE + NAME
+    season_idx = next((i for i, p in enumerate(parts) if _SEASON_RE.fullmatch(p)), None)
+    if season_idx is not None:
+        name_parts = parts[:season_idx]
+    else:
+        name_parts = list(parts)                      # season na thakle: shesh-er digit CODE bad
+        while name_parts and name_parts[-1].isdigit():
+            name_parts.pop()
+
+    # Shurute TYPE prefix (COL) thakle bad
+    if name_parts and name_parts[0].upper() in _TYPE_PREFIXES:
+        name_parts = name_parts[1:]
+
+    return " - ".join(name_parts) if name_parts else "UNKNOWN"
 
 
 # ================================================================
