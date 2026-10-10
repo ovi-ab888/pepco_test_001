@@ -200,8 +200,7 @@
     }
   ],
   "front_fields": {
-    "arial_size": 5,
-    "h_scale": 0.9,
+    "arial_size": 4.74,
     "cm_size_font": 10.44,
     "ovi_size": 5.0,
     "cm_size_baseline": 45.33,
@@ -212,9 +211,8 @@
     "washing_baseline": 82.55
   },
   "composition": {
-    "font_size": 5,
+    "font_size": 4.74,
     "line_pitch": 5.7,
-    "h_scale": 0.9,
     "wrap_width": 74.7,
     "wide_prefixes": [
       "Skupljanje"
