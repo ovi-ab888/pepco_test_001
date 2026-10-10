@@ -271,10 +271,10 @@ def _build_table_csv_bytes(df) -> bytes:
 
 
 def _build_table_csv_filename(df) -> str:
-    first = df.iloc[0].to_dict() if len(df) else {}
-    style = first.get("Style", "UNKNOWN")
-    order_id = first.get("Order_ID", "UNKNOWN")
-    return f"PEPCO_{style}_{order_id}_Data.csv"
+    filename_row = dict(st.session_state.get("pdf_filename_row", {}))
+    if len(df):
+        filename_row.update(df.fillna("").iloc[0].to_dict())
+    return extractor.build_filename(filename_row, extension="csv", template_name="Data")
 
 
 st.download_button(
