@@ -317,26 +317,16 @@ def flow_into_panels(care_lines: list, block_lines: list, mapping: dict, panels:
     return out
 
 
-def _put_text(page, fonts, cx, baseline_y, text, font, size, hscale=1.0):
-    """Draw `text` centred on x=cx. hscale < 1 squeezes it horizontally (0.9 = 90%)
-    around its start point, so the centring uses the scaled width."""
-    w = fonts.width(font, text, size) * hscale
-    x = cx - w / 2
-    kw = dict(fontsize=size, fontname=font, color=BLACK)
-    if hscale != 1.0:
-        kw["morph"] = (fitz.Point(x, baseline_y), fitz.Matrix(hscale, 0, 0, 1, 0, 0))
-    page.insert_text((x, baseline_y), text, **kw)
-
-
 def _draw_lines(page, fonts, rect, first_baseline, lines, mapping):
     comp = mapping["composition"]
     size, pitch = comp["font_size"], comp["line_pitch"]
-    hs = comp.get("h_scale", 1.0)
     cx = (rect.x0 + rect.x1) / 2
     for n, ln in enumerate(lines):
         if not ln:
             continue
-        _put_text(page, fonts, cx, rect.y0 + first_baseline + n * pitch, ln, "arial", size, hs)
+        w = fonts.width("arial", ln, size)
+        page.insert_text((cx - w / 2, rect.y0 + first_baseline + n * pitch), ln,
+                         fontsize=size, fontname="arial", color=BLACK)
 
 
 # --------------------------------------------------------------------------
@@ -346,19 +336,20 @@ def _draw_front1_fields(page, fonts, rect, row, mapping):
     ff = mapping["front_fields"]
     cx = (rect.x0 + rect.x1) / 2
     a, big, ovi = ff["arial_size"], ff["cm_size_font"], ff["ovi_size"]
-    hs = ff.get("h_scale", 1.0)        # horizontal scaling for the small Arial lines
 
-    def centered(text, font, size, baseline, hscale=1.0):
+    def centered(text, font, size, baseline):
         if not text:
             return
-        _put_text(page, fonts, cx, rect.y0 + baseline, text, font, size, hscale)
+        w = fonts.width(font, text, size)
+        page.insert_text((cx - w / 2, rect.y0 + baseline), text, fontsize=size,
+                         fontname=font, color=BLACK)
 
     centered(_s(row.get("cm_size")).strip(), "arialb", big, ff["cm_size_baseline"])
-    centered(ff.get("pepco_text", "|PEPCO|"), "arial", a, ff["pepco_baseline"], hs)
+    centered(ff.get("pepco_text", "|PEPCO|"), "arial", a, ff["pepco_baseline"])
     barcode = _s(row.get("barcode")).strip()
-    centered(f"EAN: {barcode}" if barcode else "", "arial", a, ff["ean_baseline"], hs)
+    centered(f"EAN: {barcode}" if barcode else "", "arial", a, ff["ean_baseline"])
     sku = _s(row.get("SKU")).strip()
-    centered(f"SKU {sku}" if sku else "", "arialb", a, ff["sku_baseline"], hs)
+    centered(f"SKU {sku}" if sku else "", "arialb", a, ff["sku_baseline"])
     centered(_s(row.get("washing_code")).strip(), "ovi", ovi, ff["washing_baseline"])
 
 
@@ -451,11 +442,8 @@ def generate_pad_for_group(group_rows: list, mapping: dict = None, fonts: _Fonts
         care_text, made_text = split_made_in(care_text, comp.get("made_in_marker", ""))
         if made_text.strip():    # Skupljanje line rides along, a few lines above Made-in
             care_text, skup_text = split_line_out(care_text, comp.get("skupljanje_marker", ""))
-    hs = comp.get("h_scale", 1.0)      # horizontal scaling (0.9 = 90%) -> text is narrower
-    wide_w = comp.get("wide_width")
-    wrap = lambda t: wrap_composition(t, fonts, comp["font_size"], comp["wrap_width"] / hs,
-                                      comp.get("wide_prefixes", ()),
-                                      wide_w / hs if wide_w else None)
+    wrap = lambda t: wrap_composition(t, fonts, comp["font_size"], comp["wrap_width"],
+                                      comp.get("wide_prefixes", ()), comp.get("wide_width"))
     made_lines = None
     if made_text.strip():
         made_lines = _trim_blank(wrap(made_text))
