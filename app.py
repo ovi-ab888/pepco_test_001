@@ -252,13 +252,17 @@ enriched_df = enrich_dataframe(
     st.session_state["pdf_extracted_df"], st.session_state.get("pdf_pl_price", "")
 )
 
-st.subheader("Review & correct extracted data")
 corrected_df = st.data_editor(
     enriched_df,
     use_container_width=True,
     num_rows="fixed",
     key=f"pdf_data_editor_{st.session_state.get('pdf_df_version', 0)}",
 )
+
+# Edit kora Product_name_st ke label-er Product_name e pathao
+if "Product_name_st" in corrected_df.columns:
+    corrected_df = corrected_df.copy()
+    corrected_df["Product_name"] = corrected_df["Product_name_st"]
 
 
 def _build_table_csv_bytes(df) -> bytes:
