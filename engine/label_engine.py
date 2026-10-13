@@ -291,20 +291,32 @@ def fill_single_label(template_path: str, row: dict, field_config: list) -> byte
             # Default box = [x, x+114] (the inner-label gray bar width) unless
             # the field gives its own "center_in": [x0, x1].
             align = field.get("align", "left")
-            if align == "center":
+            # "fit_width": optional. true = text must fit inside the box
+            # (center_in, default [x, x+114] = gray bar), or a number = max
+            # width in pt. Wider text is squeezed HORIZONTALLY (font size
+            # stays). "fit_padding" (default 3 pt) = gap kept on each side.
+            fit_w = field.get("fit_width")
+            sx = 1.0
+            if align == "center" or fit_w:
                 try:
                     font_obj = fitz.Font(fontfile=fontfile) if fontfile else fitz.Font(fontname)
                     text_width = font_obj.text_length(text_out, fontsize=font_size)
                 except Exception:
                     text_width = fitz.get_text_length(text_out, fontname=fontname, fontsize=font_size)
                 box_x0, box_x1 = field.get("center_in", [x, x + 114])
-                x = box_x0 + ((box_x1 - box_x0) - text_width) / 2
+                if fit_w:
+                    pad = field.get("fit_padding", 3)
+                    max_w = (box_x1 - box_x0) - 2 * pad if fit_w is True else float(fit_w)
+                    if text_width > max_w:
+                        sx = max_w / text_width
+                if align == "center":
+                    x = box_x0 + ((box_x1 - box_x0) - text_width * sx) / 2
 
+            morph = (fitz.Point(x, y), fitz.Matrix(sx, 1)) if sx < 1.0 else None
             page.insert_text(
                 (x, y), text_out, fontsize=font_size, color=color,
-                fontname=fontname, fontfile=fontfile,
+                fontname=fontname, fontfile=fontfile, morph=morph,
             )
-
         elif ftype == "qr":
             size = field.get("size", 60)
             img_bytes = _make_qr_image(value)
