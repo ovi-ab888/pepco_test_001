@@ -29,7 +29,7 @@ CM_SIZE_MAPPING = {
     "9-10": "134-140 cm", "11-12": "146-152 cm", "13-14": "158-164 cm", "15+": "170-176 cm",
 
     # ---- Man / Woman: letter size, passthrough ----
-    "XS": "XS", "M": "M", "L": "L", "XL": "XL", "XXL": "XXL", "3XL": "3XL",
+    "XS": "XS", "S": "S", "M": "M", "L": "L", "XL": "XL", "XXL": "XXL", "3XL": "3XL",
 }
 
 
