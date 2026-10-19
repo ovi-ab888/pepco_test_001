@@ -24,7 +24,7 @@ def make_style_merch_season(style_code, style_suffix=""):
     """'STYLE 123456 • <suffix> • Batch No./' — notun enrichment field."""
     if not style_code:
         return "STYLE UNKNOWN"
-    return f"STYLE {style_code} • {style_suffix} • Batch No./"
+    return f"STYLE {style_code} • {style_suffix} • Batch No./ Data e"
 
 
 def make_batch(handover_date):
@@ -37,7 +37,7 @@ def make_batch(handover_date):
             batch = (batch_date - timedelta(days=20)).strftime("%m%Y")
         except Exception:
             pass
-    return f"виготовлення: {batch}"
+    return f"prodhimit:/ Дата виготовлення: {batch}"
 
 
 def clean_item_name_english(name: str) -> str:
