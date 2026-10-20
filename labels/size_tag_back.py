@@ -47,6 +47,17 @@ def _insert_text(page, text, bbox, fontsize, color=BLACK, fontname="helv",
     page.insert_text((x, y), text, fontsize=fontsize, fontname=fontname, color=color)
 
 
+def _get(row, key):
+    """row[key], case-insensitive (product_name / Product_name / PRODUCT_NAME)."""
+    if key in row:
+        return row.get(key)
+    low = key.lower()
+    for k, v in row.items():
+        if str(k).lower() == low:
+            return v
+    return None
+
+
 def fill_back(pdf_bytes, row, config_path=CONFIG_PATH):
     """Takes the already-filled Size Tag PDF bytes, writes product_name and
     washing_code on the Back Side panel, returns new PDF bytes."""
@@ -55,27 +66,46 @@ def fill_back(pdf_bytes, row, config_path=CONFIG_PATH):
     page = doc[0]
 
     # --- product_name: same textbox logic as hangtag_front, but Arial font
-    #     (built-in helv cannot draw Cyrillic / ž č ć etc.) ---
+    #     (built-in helv cannot draw Cyrillic / ž č ć etc.).
+    #     insert_textbox draws NOTHING when text does not fit, so we shrink
+    #     the font step by step until it fits. ---
     pn = mapping.get("product_name")
-    if pn and row.get("product_name"):
+    pn_text = _get(row, "product_name")
+    if pn and pn_text:
         pn_font = "helv"
         if os.path.exists(ARIAL_FONT_PATH):
             page.insert_font(fontfile=ARIAL_FONT_PATH, fontname="arial_font")
             pn_font = "arial_font"
         color = COLOR_MAP.get(pn.get("color", "black"), BLACK)
-        page.insert_textbox(fitz.Rect(pn["bbox"]), str(row["product_name"]),
-                            fontsize=pn["fontsize"], fontname=pn_font,
-                            color=color, align=0)
+        rect = fitz.Rect(pn["bbox"])
+        size = float(pn["fontsize"])
+        min_size = float(pn.get("min_fontsize", 3.0))
+        while True:
+            rc = page.insert_textbox(rect, pn_text, fontsize=size,
+                                     fontname=pn_font, color=color, align=0)
+            if rc >= 0:
+                break
+            size -= 0.1
+            if size < min_size:
+                print("⚠️ size_tag_back: product_name box এ ধরেনি (min font এও)। "
+                      "bbox বড় করো বা text ছোট করো।")
+                break
 
     # --- washing_code: same as hangtag_back (pictogram font PEPCO_Ovi) ---
     wc = mapping.get("washing_code")
-    if wc and row.get("washing_code"):
+    if wc and _get(row, "washing_code"):
         fontname, fontfile = "helv", None
         if os.path.exists(PICTOGRAM_FONT_PATH):
             page.insert_font(fontfile=PICTOGRAM_FONT_PATH, fontname="pictogram_font")
             fontname, fontfile = "pictogram_font", PICTOGRAM_FONT_PATH
         color = COLOR_MAP.get(wc.get("color", "black"), BLACK)
-        _insert_text(page, row["washing_code"], wc["bbox"], wc["fontsize"],
+        code = str(_get(row, "washing_code"))
+        size = float(wc["fontsize"])
+        max_w = fitz.Rect(wc["bbox"]).width
+        font_obj = fitz.Font(fontfile=fontfile) if fontfile else fitz.Font(fontname=fontname)
+        while size > 3 and font_obj.text_length(code, fontsize=size) > max_w:
+            size -= 0.1  # symbols panel এর বাইরে গেলে auto ছোট হবে
+        _insert_text(page, code, wc["bbox"], size,
                      color=color, fontname=fontname,
                      align=wc.get("align", "center"), fontfile=fontfile)
 
