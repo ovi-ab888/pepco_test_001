@@ -135,18 +135,48 @@ def _get(row, key):
     return None
 
 
+def _find_back_panel(page, mapping):
+    """Back Side panel = the LOWEST panel-sized rectangle on the page
+    (works for 70mm and 86mm/OEKO-TEX templates alike)."""
+    best = None
+    for dr in page.get_drawings():
+        r = dr["rect"]
+        if 125 < r.width < 136 and r.height > 150:
+            if best is None or r.y0 > best.y0:
+                best = r
+    if best is None:  # fallback to the 70mm position stored in the JSON
+        best = fitz.Rect(mapping["page_check"]["back_panel"])
+    return best
+
+
+def _abs_bbox(panel, cfg):
+    """Panel-relative margins -> absolute bbox. (cfg['bbox'] still works.)"""
+    if "bbox" in cfg:
+        return cfg["bbox"]
+    x0 = panel.x0 + cfg["margin_left"]
+    x1 = panel.x1 - cfg["margin_right"]
+    if "margin_top" in cfg:  # product_name: top & bottom margins
+        y0 = panel.y0 + cfg["margin_top"]
+        y1 = panel.y1 - cfg["margin_bottom"]
+    else:                    # washing_code: fixed height above bottom margin
+        y1 = panel.y1 - cfg["margin_bottom"]
+        y0 = y1 - cfg["height"]
+    return [x0, y0, x1, y1]
+
+
 def fill_back(pdf_bytes, row, config_path=CONFIG_PATH):
     """Takes the already-filled Size Tag PDF bytes, writes product_name and
     washing_code on the Back Side panel, returns new PDF bytes."""
     mapping = load_mapping(config_path)
     doc = fitz.open("pdf", pdf_bytes)
     page = doc[0]
+    panel = _find_back_panel(page, mapping)
 
     # --- product_name: justified, country codes bold (see _draw_product_name) ---
     pn = mapping.get("product_name")
     pn_text = _get(row, "product_name")
     if pn and pn_text:
-        _draw_product_name(page, pn_text, pn)
+        _draw_product_name(page, pn_text, {**pn, "bbox": _abs_bbox(panel, pn)})
 
     # --- washing_code: same as hangtag_back (pictogram font PEPCO_Ovi) ---
     wc = mapping.get("washing_code")
@@ -157,12 +187,13 @@ def fill_back(pdf_bytes, row, config_path=CONFIG_PATH):
             fontname, fontfile = "pictogram_font", PICTOGRAM_FONT_PATH
         color = COLOR_MAP.get(wc.get("color", "black"), BLACK)
         code = str(_get(row, "washing_code"))
+        wc_bbox = _abs_bbox(panel, wc)
         size = float(wc["fontsize"])
-        max_w = fitz.Rect(wc["bbox"]).width
+        max_w = fitz.Rect(wc_bbox).width
         font_obj = fitz.Font(fontfile=fontfile) if fontfile else fitz.Font(fontname=fontname)
         while size > 3 and font_obj.text_length(code, fontsize=size) > max_w:
             size -= 0.1  # symbols panel এর বাইরে গেলে auto ছোট হবে
-        _insert_text(page, code, wc["bbox"], size,
+        _insert_text(page, code, wc_bbox, size,
                      color=color, fontname=fontname,
                      align=wc.get("align", "center"), fontfile=fontfile)
 
