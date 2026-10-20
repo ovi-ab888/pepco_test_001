@@ -1,5 +1,5 @@
 {
   "page_check": {"back_panel": [55.2, 484.5, 185.6, 682.9]},
-  "product_name": {"bbox": [62, 520, 179, 640], "fontsize": 5.5, "min_fontsize": 3.0, "color": "black"},
+  "product_name": {"bbox": [64.5, 520, 176.5, 640], "fontsize": 5.6, "min_fontsize": 3.0, "line_spacing": 1.25, "align": "justify", "color": "black"},
   "washing_code": {"bbox": [62, 642, 179, 664], "fontsize": 6.5, "color": "black", "align": "center"}
 }
