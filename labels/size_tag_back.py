@@ -10,12 +10,14 @@ config/size_tag_back_mapping.json (PDF points, TOP-LEFT origin).
 Preview:  python labels/size_tag_back.py   (needs a template PDF path below)
 """
 import os
+import re
 import json
 import fitz  # PyMuPDF
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(BASE_DIR, "config", "size_tag_back_mapping.json")
 ARIAL_FONT_PATH = os.path.join(BASE_DIR, "fonts", "ArialRegular.ttf")
+ARIAL_BOLD_PATH = os.path.join(BASE_DIR, "fonts", "ArialBold.ttf")  # optional; না থাকলে faux-bold
 PICTOGRAM_FONT_PATH = os.path.join(BASE_DIR, "fonts", "PEPCO_Ovi.ttf")
 
 BRAND_PINK = (236 / 255, 0 / 255, 140 / 255)
@@ -47,6 +49,81 @@ def _insert_text(page, text, bbox, fontsize, color=BLACK, fontname="helv",
     page.insert_text((x, y), text, fontsize=fontsize, fontname=fontname, color=color)
 
 
+CODE_RE = re.compile(r"^\|[A-Za-z]{2,3}\|$")  # |EN| |AL| |BiH| ... => bold
+
+
+def _draw_product_name(page, text, cfg):
+    """Justified paragraph, country codes (|EN|, |AL| ...) bold, rest regular.
+    Font shrinks (cfg.fontsize -> cfg.min_fontsize) until everything fits."""
+    reg_file = ARIAL_FONT_PATH if os.path.exists(ARIAL_FONT_PATH) else None
+    bold_file = ARIAL_BOLD_PATH if os.path.exists(ARIAL_BOLD_PATH) else None
+    reg_name, bold_name = "helv", "helv"
+    if reg_file:
+        page.insert_font(fontfile=reg_file, fontname="arial_font")
+        reg_name = bold_name = "arial_font"
+    if bold_file:
+        page.insert_font(fontfile=bold_file, fontname="arial_bold")
+        bold_name = "arial_bold"
+    faux_bold = bold_file is None
+
+    f_reg = fitz.Font(fontfile=reg_file) if reg_file else fitz.Font("helv")
+    f_bold = fitz.Font(fontfile=bold_file) if bold_file else f_reg
+
+    color = COLOR_MAP.get(cfg.get("color", "black"), BLACK)
+    rect = fitz.Rect(cfg["bbox"])
+    justify = cfg.get("align", "justify") == "justify"
+    spacing = float(cfg.get("line_spacing", 1.25))
+    size = float(cfg["fontsize"])
+    min_size = float(cfg.get("min_fontsize", 3.0))
+
+    words = [(w, bool(CODE_RE.match(w))) for w in str(text).split()]
+
+    def wlen(w, b, sz):
+        return (f_bold if b else f_reg).text_length(w, fontsize=sz)
+
+    def layout(sz):
+        space = f_reg.text_length(" ", fontsize=sz)
+        lines, cur, cur_w = [], [], 0.0
+        for w, b in words:
+            ww = wlen(w, b, sz)
+            add = ww if not cur else space + ww
+            if cur and cur_w + add > rect.width:
+                lines.append(cur)
+                cur, cur_w = [(w, b, ww)], ww
+            else:
+                cur.append((w, b, ww))
+                cur_w += add
+        if cur:
+            lines.append(cur)
+        return lines, space
+
+    while True:
+        lines, space = layout(size)
+        height = (len(lines) - 1) * size * spacing + size
+        if height <= rect.height or size <= min_size:
+            break
+        size -= 0.1
+    if height > rect.height:
+        print("⚠️ size_tag_back: product_name box এ ধরেনি (min font এও)। bbox বড় করো।")
+
+    y = rect.y0 + size * 0.92
+    for li, line in enumerate(lines):
+        n = len(line)
+        gap = space
+        if justify and li < len(lines) - 1 and n > 1:
+            gap = (rect.width - sum(ww for _, _, ww in line)) / (n - 1)
+        x = rect.x0
+        for w, b, ww in line:
+            if b and faux_bold:
+                page.insert_text((x, y), w, fontsize=size, fontname=reg_name, color=color,
+                                 fill=color, render_mode=2, border_width=size * 0.01)
+            else:
+                page.insert_text((x, y), w, fontsize=size,
+                                 fontname=bold_name if b else reg_name, color=color)
+            x += ww + gap
+        y += size * spacing
+
+
 def _get(row, key):
     """row[key], case-insensitive (product_name / Product_name / PRODUCT_NAME)."""
     if key in row:
@@ -65,31 +142,11 @@ def fill_back(pdf_bytes, row, config_path=CONFIG_PATH):
     doc = fitz.open("pdf", pdf_bytes)
     page = doc[0]
 
-    # --- product_name: same textbox logic as hangtag_front, but Arial font
-    #     (built-in helv cannot draw Cyrillic / ž č ć etc.).
-    #     insert_textbox draws NOTHING when text does not fit, so we shrink
-    #     the font step by step until it fits. ---
+    # --- product_name: justified, country codes bold (see _draw_product_name) ---
     pn = mapping.get("product_name")
     pn_text = _get(row, "product_name")
     if pn and pn_text:
-        pn_font = "helv"
-        if os.path.exists(ARIAL_FONT_PATH):
-            page.insert_font(fontfile=ARIAL_FONT_PATH, fontname="arial_font")
-            pn_font = "arial_font"
-        color = COLOR_MAP.get(pn.get("color", "black"), BLACK)
-        rect = fitz.Rect(pn["bbox"])
-        size = float(pn["fontsize"])
-        min_size = float(pn.get("min_fontsize", 3.0))
-        while True:
-            rc = page.insert_textbox(rect, pn_text, fontsize=size,
-                                     fontname=pn_font, color=color, align=0)
-            if rc >= 0:
-                break
-            size -= 0.1
-            if size < min_size:
-                print("⚠️ size_tag_back: product_name box এ ধরেনি (min font এও)। "
-                      "bbox বড় করো বা text ছোট করো।")
-                break
+        _draw_product_name(page, pn_text, pn)
 
     # --- washing_code: same as hangtag_back (pictogram font PEPCO_Ovi) ---
     wc = mapping.get("washing_code")
