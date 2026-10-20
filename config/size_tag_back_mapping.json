@@ -1,0 +1,5 @@
+{
+  "page_check": {"back_panel": [55.2, 484.5, 185.6, 682.9]},
+  "product_name": {"bbox": [62, 520, 179, 640], "fontsize": 5.5, "color": "black"},
+  "washing_code": {"bbox": [62, 642, 179, 664], "fontsize": 11, "color": "black", "align": "center"}
+}
