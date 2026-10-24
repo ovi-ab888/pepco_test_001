@@ -44,10 +44,23 @@ def map_item_class_to_dept_label(item_class):
         return "Baby Boy"
     if 'baby girls outerwear' in ic or 'baby girls essentials' in ic:
         return "Baby Girl"
-    if 'younger boys outerwear' in ic or 'older boys outerwear' in ic:
+
+    # Boys: younger/older outerwear + nightwear
+    if any(x in ic for x in [
+        'younger boys outerwear',
+        'older boys outerwear',
+        'boys nightwear',
+    ]):
         return "Boys"
-    if 'younger girls outerwear' in ic or 'older girls outerwear' in ic:
+
+    # Girls: younger/older outerwear + nightwear
+    if any(x in ic for x in [
+        'younger girls outerwear',
+        'older girls outerwear',
+        'girls nightwear',
+    ]):
         return "Girls"
+
     if 'ladies outerwear' in ic:
         return "Women"
     if 'mens outerwear' in ic:
@@ -60,9 +73,9 @@ def modify_collection(collection, item_class):
     if not item_class:
         return collection
     ic = item_class.lower()
-    if any(x in ic for x in ['younger boys', 'older boys']):
+    if any(x in ic for x in ['younger boys', 'older boys', 'boys nightwear']):
         return f"{collection} B"
-    if any(x in ic for x in ['younger girls', 'older girls']):
+    if any(x in ic for x in ['younger girls', 'older girls', 'girls nightwear']):
         return f"{collection} G"
     return collection
 
