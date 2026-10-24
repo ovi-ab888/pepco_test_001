@@ -61,7 +61,7 @@ def map_item_class_to_dept_label(item_class):
     ]):
         return "Girls"
 
-    if 'ladies outerwear' in ic:
+    if 'ladies outerwear' in ic or 'adult nightwear' in ic:
         return "Women"
     if 'mens outerwear' in ic:
         return "Mens"
