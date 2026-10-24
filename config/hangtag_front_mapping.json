@@ -1,28 +1,11 @@
 {
-  "product_name": {
-    "bbox": [
-      6.9,
-      32.5,
-      124.3,
-      134.6
-    ],
-    "fontsize": 5.5,
-    "color": "black",
-    "align": "justify",
-    "auto_fit": true,
-    "max_fontsize": 5.5,
-    "min_fontsize": 3.5,
-    "fit_step": 0.1,
-    "font": "ArialRegular.ttf",
-    "bold_font": "ArialBold.ttf"
-  },
   "prices": {
     "EUR": {
       "bbox": [
         73.8,
-        133.5,
+        127.97,
         111.0,
-        163.3
+        157.77
       ],
       "fontsize": 21.0,
       "font": "MyriadProSemibold.otf",
@@ -31,9 +14,9 @@
     "BAM": {
       "bbox": [
         73.8,
-        156.5,
+        150.65,
         111.0,
-        186.0
+        180.45
       ],
       "fontsize": 21.0,
       "font": "MyriadProSemibold.otf",
@@ -42,9 +25,9 @@
     "PLN": {
       "bbox": [
         73.8,
-        180.0,
+        173.33,
         111.0,
-        208.6
+        203.13
       ],
       "fontsize": 21.0,
       "font": "MyriadProSemibold.otf",
@@ -53,9 +36,9 @@
     "RON": {
       "bbox": [
         73.8,
-        201.0,
+        196.01,
         111.0,
-        231.3
+        225.81
       ],
       "fontsize": 21.0,
       "font": "MyriadProSemibold.otf",
@@ -64,9 +47,9 @@
     "CZK": {
       "bbox": [
         89.0,
-        224.5,
+        218.69,
         111.0,
-        254.0
+        248.49
       ],
       "fontsize": 21.0,
       "font": "MyriadProSemibold.otf",
@@ -75,9 +58,9 @@
     "MKD": {
       "bbox": [
         78.3,
-        247.0,
+        241.37,
         111.0,
-        276.7
+        271.17
       ],
       "fontsize": 21.0,
       "font": "MyriadProSemibold.otf",
@@ -86,9 +69,9 @@
     "RSD": {
       "bbox": [
         78.3,
-        269.0,
+        264.05,
         111.0,
-        299.4
+        293.85
       ],
       "fontsize": 21.0,
       "font": "MyriadProSemibold.otf",
@@ -97,9 +80,9 @@
     "HUF": {
       "bbox": [
         78.3,
-        293.0,
+        286.73,
         111.0,
-        322.0
+        316.53
       ],
       "fontsize": 21.0,
       "font": "MyriadProSemibold.otf",
