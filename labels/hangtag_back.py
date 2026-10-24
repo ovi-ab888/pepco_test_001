@@ -3,6 +3,11 @@ hangtag_back.py
 ================
 PEPCO Hangtag — BACK SIDE only.
 
+AW27: `washing_code` was REMOVED from the Hangtag back (it now lives on the
+Size Tag back — see labels/size_tag_back.py). Everything else is unchanged
+logic; only the positions in config/hangtag_back_mapping.json were re-measured
+from the new AW27 template.
+
 Position/font config lives in config/hangtag_back_mapping.json — same
 pattern as hangtag_front.py / pad_header_mapping.json.
 
@@ -10,7 +15,7 @@ Repo structure needed:
     labels/hangtag_back.py   (this file)
     config/hangtag_back_mapping.json
     fonts/ArialRegular.ttf
-    fonts/PEPCO_Ovi.ttf        (pictogram font — washing_code + Cotton)
+    fonts/PEPCO_Ovi.ttf        (pictogram font — Cotton)
     templates/Hangtag/back_side.pdf   <- your cleaned template
 
 Coordinates are in PDF points, TOP-LEFT origin (PyMuPDF convention).
@@ -58,9 +63,8 @@ COLOR_MAP = {"black": BLACK, "pink": BRAND_PINK}
 SAMPLE_ROW = {
     "Collection": "MODERN 1",
     "Colour_SKU": "BLACK • SKU 12345678",
-    "Style_Merch_Season": "STYLE 123456 • ABC12027 • Batch No./",
-    "Batch": "виготовлення: 072026",
-    "washing_code": "gjnqt",
+    "Style_Merch_Season": "STYLE 123456 • ABC12027 • Batch No./ Data e",
+    "Batch": "prodhimit:/ Дата виготовлення: 072026",
     "Cotton": "Z",
     "barcode": "2200164366761",
 }
@@ -164,7 +168,7 @@ def fill_back_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, ma
                          fontfile=(ARIAL_FONT_PATH if arial_fontname == "arial_font" and not arial_font_bytes else None),
                          fontbuffer=arial_font_bytes if arial_fontname == "arial_font" else None)
 
-    # --- Pictogram fields: washing_code, Cotton ---
+    # --- Pictogram fields: Cotton (washing_code moved to Size Tag in AW27) ---
     pictogram_fontname = "helv"
     if pictogram_font_bytes:
         page.insert_font(fontbuffer=pictogram_font_bytes, fontname="pictogram_font")
@@ -173,7 +177,7 @@ def fill_back_side(row, template_path=TEMPLATE_PATH, config_path=CONFIG_PATH, ma
         page.insert_font(fontfile=PICTOGRAM_FONT_PATH, fontname="pictogram_font")
         pictogram_fontname = "pictogram_font"
 
-    for field in ["washing_code", "Cotton"]:
+    for field in ["Cotton"]:
         cfg = mapping.get(field)
         if cfg and row.get(field):
             color = COLOR_MAP.get(cfg.get("color", "pink"), BRAND_PINK)
