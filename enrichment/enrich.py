@@ -70,7 +70,7 @@ def _get_dept_value(item_class):
         return "KIDS"
     if any(x in ic for x in ["older girls", "older boys"]):
         return "TEENS"
-    if "ladies outerwear" in ic:
+    if "ladies outerwear" in ic or "adult nightwear" in ic:
         return "WOMEN"
     if "mens outerwear" in ic:
         return "MEN"
