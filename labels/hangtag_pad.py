@@ -102,18 +102,20 @@ def generate_pad_repeat_back(row, front_bytes=None, back_bytes=None, template_pa
 generate_pad = generate_pad_repeat_back
 
 
-_FRONT_KEY_COLUMNS = ["product_name", "EUR", "BAM", "PLN", "RON", "CZK", "MKD", "RSD", "HUF"]
+# AW27: product_name is no longer printed on the Hangtag Front (it moved to the
+# Size Tag back), so it must NOT split Pads any more — only the prices decide.
+_FRONT_KEY_COLUMNS = ["EUR", "BAM", "PLN", "RON", "CZK", "MKD", "RSD", "HUF"]
 
 
 def _front_signature(row):
-    """Rows with the same product_name + price set share one Front side."""
+    """Rows with the same price set share one Front side (AW27: no product_name)."""
     return tuple(row.get(col, "") for col in _FRONT_KEY_COLUMNS)
 
 
 def group_rows_for_pads(rows, chunk_size=None, mapping=None):
     """
     Groups rows into Pad-sized chunks: consecutive rows that share the same
-    Front signature (same product_name + prices) go on the same Pad, up to
+    Front signature (same prices) go on the same Pad, up to
     `chunk_size` rows per Pad — each row becomes ONE Back slot with its
     own barcode/SKU/batch, while the Front is generated ONCE per group
     (from the group's first row). A signature change always starts a new
@@ -247,7 +249,7 @@ def generate_pad_for_group(group_rows, template_path=None, config_path=CONFIG_PA
 
 def generate_batch(rows, template_path=None, config_path=CONFIG_PATH):
     """
-    Groups `rows` (same product_name+price -> same Pad, one unique Back
+    Groups `rows` (same price set -> same Pad, one unique Back
     per row) and returns a list of Pad PDF bytes, one per Pad/group.
     Each group automatically gets the small or big Pad template based on
     how many units it has; pass `template_path` to force one template.
