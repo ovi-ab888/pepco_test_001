@@ -50,9 +50,9 @@ def _get_dept_value(item_class):
     ic = (item_class or "").lower()
     if any(x in ic for x in ["baby boys", "baby girls"]):
         return "BABY"
-    if any(x in ic for x in ["younger boys", "younger girls"]):
+    if any(x in ic for x in ["younger boys", "younger girls", "Girls nightwear"]):
         return "KIDS"
-    if any(x in ic for x in ["older girls", "older boys"]):
+    if any(x in ic for x in ["older girls", "older boys", "Boys nightwear"]):
         return "TEENS"
     if "ladies outerwear" in ic:
         return "WOMEN"
