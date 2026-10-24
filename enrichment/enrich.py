@@ -46,13 +46,29 @@ _HIDDEN_COLS = ["Item_name_EN"]
 
 
 def _get_dept_value(item_class):
-    """Item_classification -> BABY / KIDS / TEENS / WOMEN / MEN."""
+    """Item_classification -> Boys / Girls / BABY / KIDS / TEENS / WOMEN / MEN."""
     ic = (item_class or "").lower()
+
+    # --- NEW: Boys / Girls (age bracket-er age check korte hobe) ---
+    if any(x in ic for x in [
+        "boys nightwear",          # c
+        "older boys outerwear",    # b
+        "younger boys outerwear",  # a
+    ]):
+        return "Boys"
+    if any(x in ic for x in [
+        "girls nightwear",          # c
+        "older girls outerwear",    # b
+        "younger girls outerwear",  # a
+    ]):
+        return "Girls"
+
+    # --- Existing ---
     if any(x in ic for x in ["baby boys", "baby girls"]):
         return "BABY"
-    if any(x in ic for x in ["younger boys", "younger girls", "Girls nightwear"]):
+    if any(x in ic for x in ["younger boys", "younger girls"]):
         return "KIDS"
-    if any(x in ic for x in ["older girls", "older boys", "Boys nightwear"]):
+    if any(x in ic for x in ["older girls", "older boys"]):
         return "TEENS"
     if "ladies outerwear" in ic:
         return "WOMEN"
