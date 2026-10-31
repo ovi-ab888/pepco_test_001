@@ -151,6 +151,30 @@ def render_composition_care_section():
                     translations.append(to_sentence_case(str(val).strip()))
         return "/ ".join(translations)
 
+    def get_joined_component_names(main_name, optional_name=""):
+        """Main + Optional name ke proti language-e ', ' diye join kore, language-gulo '/ ' diye."""
+        def _val(name, col):
+            if not name:
+                return ""
+            if col == "EN":
+                return to_sentence_case(name)
+            row = comp_translations_df[comp_translations_df['EN'].astype(str).str.strip() == name]
+            if row.empty:
+                return ""
+            v = row.iloc[0].get(col, "")
+            return to_sentence_case(str(v).strip()) if pd.notna(v) and str(v).strip() else ""
+
+        if comp_translations_df.empty:
+            return ", ".join([to_sentence_case(x) for x in (main_name, optional_name) if x])
+
+        cols = ["EN"] + [c for c in comp_translations_df.columns if c != "EN"]
+        out = []
+        for c in cols:
+            parts = [x for x in (_val(main_name, c), _val(optional_name, c)) if x]
+            if parts:
+                out.append(", ".join(parts))
+        return "/ ".join(out)
+
     def build_material_line(materials):
         parts = []
         for m in materials:
@@ -268,13 +292,8 @@ def render_composition_care_section():
         material_text = build_material_line(comp["materials"])
 
         if use_advanced_mode:
-            main_name = get_component_name_translations(comp["name"])
-            optional_name = get_component_name_translations(comp["name_optional"]) if comp.get("name_optional") else ""
-
-            if optional_name:
-                line = f"{main_name}\n\n{optional_name}:\n\n{material_text}"
-            else:
-                line = f"{main_name}:\n\n{material_text}"
+            joined_name = get_joined_component_names(comp["name"], comp.get("name_optional", ""))
+            line = f"{joined_name}:\n\n{material_text}"
         else:
             line = material_text
 
@@ -434,6 +453,7 @@ def _component_name_in_language(comp_name, comp_translations_df, lang):
 #
 #  Simple Mode: "100% Pambuk" (component name chara)
 #  Advanced Mode, ekta component: "Pëlhurë kryesore 100% Pambuk"
+#  Advanced Mode, Optional name thakle: "Pëlhurë kryesore, Llastik 100% Pambuk"
 #  Advanced Mode, multi component:
 #     "Pëlhurë kryesore 100% Pambuk: Llastik 95% Pambuk, 5% Elasten"
 #
@@ -451,6 +471,9 @@ def build_language_composition(components_data, materials_df, comp_translations_
 
         if use_advanced_mode:
             comp_name = _component_name_in_language(comp["name"], comp_translations_df, lang)
+            opt_name = _component_name_in_language(comp.get("name_optional", ""), comp_translations_df, lang)
+            if comp_name and opt_name:
+                comp_name = f"{comp_name}, {opt_name}"
             parts.append(f"{comp_name} {materials_str}" if comp_name else materials_str)
         else:
             parts.append(materials_str)
