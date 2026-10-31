@@ -66,6 +66,8 @@ def load_component_translations():
 # ================================================================
 #  Fixed text blocks (shob somoy CSV te thake)
 # ================================================================
+MAX_COMPONENTS = 10  # Maximum koyta component add kora jabe (ekhane number bodlalei limit bodlabe)
+
 SHRINKAGE_LINE = "Skupljanje:  po dužini: 4%, po širini 4%"
 
 BANGLADESH_LINE = """Made in Bangladesh/ Vendi i Origjinës: Bangladesh/ Произведено в Бангладеш/ Fabricado en Bangladesh/ Κατασκευάζεται στην Μπαγκλαντές/ Pagaminta Bangladeše/ Ražots Bangladešā/ Wyprodukowano w Bangladeszu/ Произведено во Бангладеш/ Proizvedeno u Bangladešu/ Zemlja izvoza: EU/ Виготовлено в Бангладеш.
@@ -275,7 +277,7 @@ def render_composition_care_section():
                 })
 
     if use_advanced_mode:
-        if len(st.session_state.cc_composition_blocks) < 5:
+        if len(st.session_state.cc_composition_blocks) < MAX_COMPONENTS:
             if st.button("➕ Add Component", key="cc_add_component_btn"):
                 st.session_state.cc_composition_blocks.append({
                     "component_name": "Main fabric",
@@ -284,7 +286,7 @@ def render_composition_care_section():
                 })
                 st.rerun()
         else:
-            st.info("Maximum 5 components allowed")
+            st.info(f"Maximum {MAX_COMPONENTS} components allowed")
 
     # Build composition text
     composition_lines = []
