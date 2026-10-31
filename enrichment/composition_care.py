@@ -66,6 +66,7 @@ def load_component_translations():
 # ================================================================
 #  Fixed text blocks (shob somoy CSV te thake)
 # ================================================================
+MAX_EXTRA_NAMES = 3  # Component Name + Optional chara aro koyta extra name join kora jabe
 MAX_COMPONENTS = 10  # Maximum koyta component add kora jabe (ekhane number bodlalei limit bodlabe)
 
 SHRINKAGE_LINE = "Skupljanje:  po dužini: 4%, po širini 4%"
@@ -153,11 +154,16 @@ def render_composition_care_section():
                     translations.append(to_sentence_case(str(val).strip()))
         return "/ ".join(translations)
 
-    def get_joined_component_names(main_name, optional_name=""):
-        """Main + Optional name ke proti language-e ', ' diye join kore, language-gulo '/ ' diye."""
+    def get_joined_component_names(main_name, optional_names=None):
+        """Main + Optional (+ extra) name ke proti language-e ', ' diye join kore, language-gulo '/ ' diye."""
+        if isinstance(optional_names, str):
+            optional_names = [optional_names]
+        names = []
+        for n in [main_name] + list(optional_names or []):
+            if n and n not in names:  # duplicate name skip
+                names.append(n)
+
         def _val(name, col):
-            if not name:
-                return ""
             if col == "EN":
                 return to_sentence_case(name)
             row = comp_translations_df[comp_translations_df['EN'].astype(str).str.strip() == name]
@@ -167,12 +173,12 @@ def render_composition_care_section():
             return to_sentence_case(str(v).strip()) if pd.notna(v) and str(v).strip() else ""
 
         if comp_translations_df.empty:
-            return ", ".join([to_sentence_case(x) for x in (main_name, optional_name) if x])
+            return ", ".join(to_sentence_case(x) for x in names)
 
         cols = ["EN"] + [c for c in comp_translations_df.columns if c != "EN"]
         out = []
         for c in cols:
-            parts = [x for x in (_val(main_name, c), _val(optional_name, c)) if x]
+            parts = [x for x in (_val(n, c) for n in names) if x]
             if parts:
                 out.append(", ".join(parts))
         return "/ ".join(out)
@@ -215,6 +221,34 @@ def render_composition_care_section():
                             index=optional_index,
                             key=f"cc_comp_name_optional_{block_idx}"
                         )
+
+                    # Extra names (Optional chara aro name join korar jonno)
+                    extras = block.setdefault("extra_names", [])
+                    for ex_idx in range(len(extras)):
+                        ex1, ex2 = st.columns([5, 1])
+                        with ex1:
+                            ex_options = [""] + component_options
+                            ex_cur = extras[ex_idx]
+                            ex_index = ex_options.index(ex_cur) if ex_cur in ex_options else 0
+                            extras[ex_idx] = st.selectbox(
+                                f"Extra Component Name #{block_idx + 1}.{ex_idx + 1}",
+                                options=ex_options,
+                                index=ex_index,
+                                key=f"cc_comp_name_extra_{block_idx}_{ex_idx}"
+                            )
+                        with ex2:
+                            st.write("")
+                            st.write("")
+                            if st.button("❌", key=f"cc_remove_extra_{block_idx}_{ex_idx}"):
+                                for k in range(len(extras)):
+                                    st.session_state.pop(f"cc_comp_name_extra_{block_idx}_{k}", None)
+                                extras.pop(ex_idx)
+                                st.rerun()
+
+                    if len(extras) < MAX_EXTRA_NAMES:
+                        if st.button("➕ Add Name", key=f"cc_add_extra_{block_idx}"):
+                            extras.append("")
+                            st.rerun()
                 else:
                     st.markdown("#### Simple Composition")
             with top2:
@@ -273,6 +307,7 @@ def render_composition_care_section():
                 components_data.append({
                     "name": block["component_name"],
                     "name_optional": block.get("component_name_optional", ""),
+                    "names_extra": [x for x in block.get("extra_names", []) if x],
                     "materials": valid_materials.copy()
                 })
 
@@ -282,6 +317,7 @@ def render_composition_care_section():
                 st.session_state.cc_composition_blocks.append({
                     "component_name": "Main fabric",
                     "component_name_optional": "",
+                    "extra_names": [],
                     "materials": [{"mat": "", "pct": 0}]
                 })
                 st.rerun()
@@ -294,7 +330,7 @@ def render_composition_care_section():
         material_text = build_material_line(comp["materials"])
 
         if use_advanced_mode:
-            joined_name = get_joined_component_names(comp["name"], comp.get("name_optional", ""))
+            joined_name = get_joined_component_names(comp["name"], [comp.get("name_optional", "")] + comp.get("names_extra", []))
             line = f"{joined_name}:\n\n{material_text}"
         else:
             line = material_text
@@ -472,10 +508,13 @@ def build_language_composition(components_data, materials_df, comp_translations_
         materials_str = ", ".join(mat_parts)
 
         if use_advanced_mode:
-            comp_name = _component_name_in_language(comp["name"], comp_translations_df, lang)
-            opt_name = _component_name_in_language(comp.get("name_optional", ""), comp_translations_df, lang)
-            if comp_name and opt_name:
-                comp_name = f"{comp_name}, {opt_name}"
+            all_names = []
+            for n in [comp["name"], comp.get("name_optional", "")] + comp.get("names_extra", []):
+                if n and n not in all_names:  # duplicate skip
+                    all_names.append(n)
+            comp_name = ", ".join(
+                x for x in (_component_name_in_language(n, comp_translations_df, lang) for n in all_names) if x
+            )
             parts.append(f"{comp_name} {materials_str}" if comp_name else materials_str)
         else:
             parts.append(materials_str)
