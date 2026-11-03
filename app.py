@@ -466,6 +466,7 @@ with st.expander("Benefite Tag and Sticker", expanded=False):
                 "template_path": template_path,
             }
             selected_labels.append(label_key)
+
 if selected_labels and st.button("Generate Selected Labels", type="primary"):
     rows = corrected_df.fillna("").to_dict(orient="records")
     filename_row = dict(st.session_state.get("pdf_filename_row", {}))
@@ -477,8 +478,6 @@ if selected_labels and st.button("Generate Selected Labels", type="primary"):
             for label_name in selected_labels:
                 entry = label_options[label_name]
                 label_rows = rows if entry.get("per_row") else _order_rows(rows)
-                try:
-                    pdf_bytes = entry["generate"](label_rows)
                 try:
                     pdf_bytes = entry["generate"](label_rows)
                 except benefite_label.BenefiteSizeError as e:
