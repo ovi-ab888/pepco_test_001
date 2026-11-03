@@ -97,6 +97,19 @@ CM_TO_RANGE = {
 }
 
 
+# Oval slot positions on the Pad (x0, y0, x1, y1 in PDF points; 35 x 25 mm each),
+# top row left->right, then bottom row. Used when the Pad template has NO slot
+# outlines drawn in it (the oval outlines are optional in the template).
+PAD_SLOTS = {
+    "Hanger Sticker": [
+        (157.3, 253.4, 256.5, 324.3), (288.0, 253.4, 387.2, 324.3),
+        (418.6, 253.4, 517.9, 324.3), (549.3, 253.4, 648.5, 324.3),
+        (161.9, 381.3, 261.2, 452.2), (292.6, 381.3, 391.8, 452.2),
+        (423.3, 381.3, 522.5, 452.2), (553.9, 381.3, 653.2, 452.2),
+    ],
+}
+
+
 class BenefiteSizeError(Exception):
     """Raised when a size in the data has no matching sticker file."""
 
@@ -406,8 +419,10 @@ def generate_batch_pad(rows: list, sticker_type: str) -> bytes:
 
     header_row = _without_sizes(rows[0])
     template_doc = fitz.open(pad_path)
-    slots = _pad_slot_rects(template_doc[0])
+    slots = _pad_slot_rects(template_doc[0])      # outlines drawn in the template, if any
     template_doc.close()
+    if not slots:
+        slots = [fitz.Rect(*r) for r in PAD_SLOTS.get(sticker_type, [])]
     if not slots:
         raise BenefiteSizeError(f"{sticker_type}: no sticker slots found in the Pad template.")
 
