@@ -49,6 +49,17 @@ different Sizes each, without the user choosing anything extra.
 Folders using this behaviour are listed in AUTO_SIZE_TYPES below — add a
 type name there when its variant filenames encode sizes this way.
 
+--- Pad-type stickers (Hanger Sticker) ---
+Some types are a small sticker PER SIZE that must be placed on a Pad page:
+    templates/Benefite/Hanger Sticker/Hanger_Sticker_Pad.pdf   (the Pad, 8 oval slots)
+    templates/Benefite/Hanger Sticker/0-0.pdf, 0-3.pdf, 3-6.pdf, 6-9.pdf ...  (one per size)
+For every size found in the data, the matching sticker file is repeated into
+ALL slots of one Pad page (header filled from the data) -> N sizes = N pages.
+Size tokens may be ranges (0/3, 0-3, 0:3 ...) or baby cm sizes (56, 62, 68, 74
+-> see CM_TO_RANGE). A size with no matching file raises BenefiteSizeError.
+Add a new size = drop its PDF (named like 9-12.pdf) in the folder; for a new
+cm size add one line in CM_TO_RANGE.
+
 All Benefite templates share the same header layout as Inner_Outer_Sticker/
 Size Tag, so they use config/pad_header_mapping.json too.
 """
@@ -72,6 +83,17 @@ TEMPLATE_PATH = None
 # sticker types whose variant files should be auto-matched against each
 # row's Sizes value, rather than picked manually via dropdown
 AUTO_SIZE_TYPES = {"KVI Size Sticker", "Utag"}
+
+# sticker types that are a Pad + one small sticker per size
+# {type folder name: pad file name inside that folder}
+PAD_TYPES = {"Hanger Sticker": "Hanger_Sticker_Pad.pdf"}
+
+# baby cm size -> (from, to) months, matches the file names (56 = 0-0 mths ...)
+CM_TO_RANGE = {"56": (0, 0), "62": (0, 3), "68": (3, 6), "74": (6, 9)}
+
+
+class BenefiteSizeError(Exception):
+    """Raised when a size in the data has no matching sticker file."""
 
 
 def _list_subfolders(path: str) -> list:
@@ -117,6 +139,10 @@ def get_template_path(sticker_type: str, variant_file: str) -> str:
 
 def is_auto_size_type(sticker_type: str) -> bool:
     return sticker_type in AUTO_SIZE_TYPES
+
+
+def is_pad_type(sticker_type: str) -> bool:
+    return sticker_type in PAD_TYPES
 
 
 # Separators seen across real filenames so far: colon, slash, hyphen,
@@ -269,6 +295,98 @@ def generate_batch_auto_size(rows: list, sticker_type: str) -> bytes:
         single_doc = fitz.open("pdf", single_bytes)
         merged.insert_pdf(single_doc)
         single_doc.close()
+    out = merged.tobytes()
+    merged.close()
+    return out
+
+
+# ======================= Pad-type (Hanger Sticker) =======================
+
+def _token_to_range(token: str):
+    """'0/3' / '0-3' / '0:3' -> (0, 3);  '56' -> (0, 0) via CM_TO_RANGE."""
+    m = re.search(rf"(\d+)\s*{_RANGE_SEP}\s*(\d+)", token)
+    if m:
+        return (int(m.group(1)), int(m.group(2)))
+    plain = token.strip()
+    if plain in CM_TO_RANGE:
+        return CM_TO_RANGE[plain]
+    return None
+
+
+def pick_pad_size_file(sticker_type: str, token: str):
+    """Sticker file for ONE size token, or None if there is no match."""
+    files = [f for f in list_variants(sticker_type) if f != PAD_TYPES[sticker_type]]
+    # explicit override (config/benefite_size_overrides.json, per single size token)
+    override = _load_size_overrides().get(sticker_type, {}).get(token.strip())
+    if override in files:
+        return override
+    rng = _token_to_range(token)
+    if rng is None:
+        return None
+    for f in files:
+        if set(_extract_ranges(f)) == {rng}:
+            return f
+    return None
+
+
+def _pad_slot_rects(page) -> list:
+    """The oval slots of the Pad, found from the template's own outlines
+    (~99 x 71 pt shapes), ordered top row -> bottom row, left -> right."""
+    seen, rects = set(), []
+    for d in page.get_drawings():
+        r = d["rect"]
+        if 90 < r.width < 110 and 60 < r.height < 80:
+            key = (round(r.x0), round(r.y0))
+            if key not in seen:
+                seen.add(key)
+                rects.append(r)
+    rects.sort(key=lambda r: (round(r.y0 / 40), r.x0))
+    return rects
+
+
+def generate_batch_pad(rows: list, sticker_type: str) -> bytes:
+    """One Pad page per size found in the data. Every oval slot of that page
+    carries the size's sticker. Header (Order_ID, Style, Colour ...) is filled
+    from the first row."""
+    field_config = load_field_config()
+    pad_path = get_template_path(sticker_type, PAD_TYPES[sticker_type])
+    if not os.path.exists(pad_path):
+        raise BenefiteSizeError(f"Pad template not found: {PAD_TYPES[sticker_type]}")
+
+    tokens = []
+    for r in rows:
+        for t in str(r.get("Sizes", "")).split(","):
+            t = t.strip()
+            if t and t not in tokens:
+                tokens.append(t)
+    if not tokens:
+        raise BenefiteSizeError(f"{sticker_type}: Sizes column is empty, no size to generate.")
+
+    plan, missing = [], []
+    for t in tokens:
+        f = pick_pad_size_file(sticker_type, t)
+        (plan if f else missing).append((t, f) if f else t)
+    if missing:
+        raise BenefiteSizeError(
+            f"{sticker_type}: no sticker file for size(s): {', '.join(missing)}. "
+            f"Upload the PDF to templates/Benefite/{sticker_type}/ (e.g. 9-12.pdf)."
+        )
+
+    header_row = _without_sizes(rows[0])
+    merged = fitz.open()
+    for token, fname in plan:
+        page_bytes = fill_single_label(pad_path, header_row, field_config)
+        pad_doc = fitz.open("pdf", page_bytes)
+        page = pad_doc[0]
+        sticker = fitz.open(get_template_path(sticker_type, fname))
+        sw, sh = sticker[0].rect.width, sticker[0].rect.height
+        for slot in _pad_slot_rects(page):
+            # sticker artwork sits 0.2pt inside its page, slot outline = artwork edge
+            x0, y0 = slot.x0 - 0.2, slot.y0 - 0.2
+            page.show_pdf_page(fitz.Rect(x0, y0, x0 + sw, y0 + sh), sticker, 0)
+        sticker.close()
+        merged.insert_pdf(pad_doc)
+        pad_doc.close()
     out = merged.tobytes()
     merged.close()
     return out
