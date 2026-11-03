@@ -415,57 +415,64 @@ with st.expander("Size Tag", expanded=False):
             selected_labels.append(size_tag_key)
 
 # ---- Block 3: Benefite Tag and Sticker (templates/Benefite/ theke auto-scan) ----
+# Care Instructions-er moto: dropdown theke choose -> "Add Label" button -> added list
 with st.expander("Benefite Tag and Sticker", expanded=False):
-    sticker_types = benefite_label.list_sticker_types()
-    if not sticker_types:
-        st.caption("No Benefite templates found yet in templates/Benefite/.")
-    for sticker_type in sticker_types:
+    # option name -> how to generate it
+    benefite_options = {}
+    for sticker_type in benefite_label.list_sticker_types():
         if benefite_label.is_pad_type(sticker_type):
-            # Pad-type (Hanger Sticker): one Pad page per size found in Sizes
-            checked = st.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
-            if checked:
-                label_options[sticker_type] = {
-                    "generate": lambda rows, st_=sticker_type: benefite_label.generate_batch_pad(rows, st_),
-                    "template_path": None,
-                    "template_name": sticker_type,
-                }
-                selected_labels.append(sticker_type)
-            continue
-        if benefite_label.is_auto_size_type(sticker_type):
-            # one checkbox — the right variant is picked per-row automatically
-            # by matching each row's Sizes against the available filenames
-            checked = st.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
-            if checked:
-                label_options[sticker_type] = {
-                    "generate": lambda rows, st_=sticker_type: benefite_label.generate_batch_auto_size(rows, st_),
-                    "template_path": None,
-                    "template_name": sticker_type,
-                }
-                selected_labels.append(sticker_type)
-            continue
-
-        variants = benefite_label.list_variants(sticker_type)
-        if not variants:
-            continue
-
-        col1, col2 = st.columns([2, 2])
-        checked = col1.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
-        if len(variants) > 1:
-            sel_variant = col2.selectbox(
-                "Select variant", variants,
-                key=f"benefite_variant_{sticker_type}", label_visibility="collapsed",
-            )
-        else:
-            sel_variant = variants[0]
-
-        if checked:
-            template_path = benefite_label.get_template_path(sticker_type, sel_variant)
-            label_key = f"{sticker_type} ({sel_variant})" if len(variants) > 1 else sticker_type
-            label_options[label_key] = {
-                "generate": lambda rows, tp=template_path: benefite_label.generate_batch(rows, tp),
-                "template_path": template_path,
+            # Pad-type (Hanger Sticker): one sticker per size found in Sizes, on a Pad
+            benefite_options[sticker_type] = {
+                "generate": lambda rows, st_=sticker_type: benefite_label.generate_batch_pad(rows, st_),
+                "template_path": None,
+                "template_name": sticker_type,
             }
-            selected_labels.append(label_key)
+        elif benefite_label.is_auto_size_type(sticker_type):
+            # the right variant is picked per-row automatically (matching Sizes to filenames)
+            benefite_options[sticker_type] = {
+                "generate": lambda rows, st_=sticker_type: benefite_label.generate_batch_auto_size(rows, st_),
+                "template_path": None,
+                "template_name": sticker_type,
+            }
+        else:
+            variants = benefite_label.list_variants(sticker_type)
+            for variant in variants:
+                tp = benefite_label.get_template_path(sticker_type, variant)
+                opt_name = f"{sticker_type} ({variant})" if len(variants) > 1 else sticker_type
+                benefite_options[opt_name] = {
+                    "generate": lambda rows, tp=tp: benefite_label.generate_batch(rows, tp),
+                    "template_path": tp,
+                }
+
+    if not benefite_options:
+        st.caption("No Benefite templates found yet in templates/Benefite/.")
+    else:
+        if "benefite_added" not in st.session_state:
+            st.session_state["benefite_added"] = []
+
+        def _add_benefite_label():
+            pick = st.session_state.get("benefite_pick")
+            if pick and pick not in st.session_state["benefite_added"]:
+                st.session_state["benefite_added"].append(pick)
+            st.session_state["benefite_pick"] = None
+
+        def _remove_benefite_label(name):
+            if name in st.session_state["benefite_added"]:
+                st.session_state["benefite_added"].remove(name)
+
+        st.selectbox(
+            "Add Benefite Label", list(benefite_options),
+            index=None, placeholder="Choose an option", key="benefite_pick",
+        )
+        st.button("Add Label", key="benefite_add_btn", on_click=_add_benefite_label)
+
+        for name in [n for n in st.session_state["benefite_added"] if n in benefite_options]:
+            c_name, c_rm = st.columns([6, 1])
+            c_name.markdown(f"**{name}**")
+            c_rm.button("Remove", key=f"benefite_rm_{name}",
+                        on_click=_remove_benefite_label, args=(name,))
+            label_options[name] = benefite_options[name]
+            selected_labels.append(name)
 
 if selected_labels and st.button("Generate Selected Labels", type="primary"):
     rows = corrected_df.fillna("").to_dict(orient="records")
