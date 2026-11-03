@@ -466,7 +466,6 @@ with st.expander("Benefite Tag and Sticker", expanded=False):
                 "template_path": template_path,
             }
             selected_labels.append(label_key)
-
 if selected_labels and st.button("Generate Selected Labels", type="primary"):
     rows = corrected_df.fillna("").to_dict(orient="records")
     filename_row = dict(st.session_state.get("pdf_filename_row", {}))
