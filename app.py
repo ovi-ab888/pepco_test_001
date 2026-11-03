@@ -420,7 +420,7 @@ with st.expander("Benefite Tag and Sticker", expanded=False):
     if not sticker_types:
         st.caption("No Benefite templates found yet in templates/Benefite/.")
     for sticker_type in sticker_types:
-                if benefite_label.is_pad_type(sticker_type):
+        if benefite_label.is_pad_type(sticker_type):
             # Pad-type (Hanger Sticker): one Pad page per size found in Sizes
             checked = st.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
             if checked:
