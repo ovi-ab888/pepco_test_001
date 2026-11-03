@@ -420,6 +420,17 @@ with st.expander("Benefite Tag and Sticker", expanded=False):
     if not sticker_types:
         st.caption("No Benefite templates found yet in templates/Benefite/.")
     for sticker_type in sticker_types:
+                if benefite_label.is_pad_type(sticker_type):
+            # Pad-type (Hanger Sticker): one Pad page per size found in Sizes
+            checked = st.checkbox(sticker_type, key=f"chk_benefite_{sticker_type}")
+            if checked:
+                label_options[sticker_type] = {
+                    "generate": lambda rows, st_=sticker_type: benefite_label.generate_batch_pad(rows, st_),
+                    "template_path": None,
+                    "template_name": sticker_type,
+                }
+                selected_labels.append(sticker_type)
+            continue
         if benefite_label.is_auto_size_type(sticker_type):
             # one checkbox — the right variant is picked per-row automatically
             # by matching each row's Sizes against the available filenames
@@ -469,6 +480,11 @@ if selected_labels and st.button("Generate Selected Labels", type="primary"):
                 label_rows = rows if entry.get("per_row") else _order_rows(rows)
                 try:
                     pdf_bytes = entry["generate"](label_rows)
+                try:
+                    pdf_bytes = entry["generate"](label_rows)
+                except benefite_label.BenefiteSizeError as e:
+                    st.error(str(e))
+                    st.stop()
                 except care_label.CareLabelOverflow as e:
                     st.error(f"{label_name}: {e}")
                     st.stop()
