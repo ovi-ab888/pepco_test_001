@@ -45,12 +45,12 @@
 
   "number": {
     "font_size": 5.69,
-    "right_edge": 77.9,
+    "right_edge": 79,
     "baseline": 10.2
   },
 
   "caption": {
-    "font_size": 11.5,
+    "font_size": 8,
     "offset_above": 8.5,
     "color": [0.925, 0, 0.549]
   },
@@ -69,7 +69,7 @@
     "front_last_baseline": 160.4,
     "made_in_marker": "Made in Bangladesh",
     "skupljanje_marker": "Skupljanje",
-    "skupljanje_gap_lines": 5
+    "skupljanje_gap_lines": 4
   },
 
   "email": {
