@@ -74,10 +74,14 @@
 
   "email": {
     "template": "customerpepcoeu",
-    "rect": [14.95, 149.2, 70.08, 140],
-    "text_clear_baseline": 130
+    "rect": [
+      14.95,
+      149.2,
+      70.08,
+      156.29
+    ],
+    "text_clear_baseline": 145.5
   },
-
   "header": [
     {"name": "Order_ID", "x": 89.2, "y": 77.7, "font_size": 8, "join_unique": "+"},
     {"name": "Style", "x": 89.2, "y": 89.8, "font_size": 8},
