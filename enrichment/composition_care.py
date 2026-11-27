@@ -330,7 +330,7 @@ def render_composition_care_section():
 
         if use_advanced_mode:
             joined_name = get_joined_component_names(comp["name"], [comp.get("name_optional", "")] + comp.get("names_extra", []))
-            line = f"{joined_name}:\n\n{material_text}"
+            line = f"{joined_name}:\n{material_text}"
         else:
             line = material_text
 
@@ -404,9 +404,9 @@ def render_composition_care_section():
         combined_care = care_inst_translated
 
     if combined_care:
-        combined_care = f"{combined_care}\n\n\n\n\n\n\n\n\n\n{SHRINKAGE_LINE}\n\n\n\n\n\n\n\n\n\n{BANGLADESH_LINE}"
+        combined_care = f"{combined_care}\n\n{SHRINKAGE_LINE}\n\n\n\n\n\n{BANGLADESH_LINE}"
     else:
-        combined_care = f"{SHRINKAGE_LINE}\n\n\n\n\n\n\n\n\n\n{BANGLADESH_LINE}"
+        combined_care = f"{SHRINKAGE_LINE}\n\n\n\n\n\n{BANGLADESH_LINE}"
 
     # ---------- Cotton flag (CSV "Cotton" column) ----------
     # Shudhu ekta component ar tar bhitore ekta-i material thakle, ar sheta
