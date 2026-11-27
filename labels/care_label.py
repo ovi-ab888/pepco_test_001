@@ -25,15 +25,18 @@ Text rules
       "Made in Bangladesh ... Produced by ... addresses" then starts after
       skupljanje_gap_lines (5) blank lines, i.e. at the top of the next panel,
       and simply flows on (it may be split over several panels).
-    * The "@ customer@pepco.eu" artwork is always placed at the bottom of the
-      LAST panel. If the last text line would touch it, it goes to a new panel.
+    * The "@ customer@pepco.eu" artwork is always placed in the LAST panel,
+      its bottom edge 10 mm above the panel bottom. If the last text line would
+      touch it, it goes to a new panel.
     * Back panels stop 5 mm above the pink dash line.
 
 Pad template choice (per group of sizes with identical Composition_Care):
-      <= 5 sizes -> Care_Label_Pad_1.pdf   (5 Front side 1 + Back side 1)
-      6-7 sizes  -> Care_Label_Pad_2_1.pdf (7 Front side 1 + Back side 1)
-      > 7 sizes  -> split into several Pad pages
-Unused Front side 1 slots are left empty.
+      1-5 sizes -> Care_Label_Pad_1.pdf    (5 Front side 1 + Back side 1)
+      6 sizes   -> Care_Label_Pad_2_1.pdf  (6 Front side 1 + Back side 1)
+      7 sizes   -> Care_Label_Pad_3.pdf    (7 Front side 1 + Back side 1)
+      > 7 sizes -> split into several Pad pages
+Back side 1 always sits right after the last size (4 sizes -> Back side 1 in
+column 5, column 6 stays empty).
 
 Data columns used (from the editable table / CSV):
     cm_size, barcode, SKU, washing_code, Composition_Care     <- label content
@@ -48,7 +51,7 @@ Repo structure needed:
     templates/Care label/   1st_label_front_side.pdf, 1st_label_Back_side.pdf,
                             Front_Side_1.pdf, Back_Side_1.pdf,
                             Care_Label_Pad_1.pdf, Care_Label_Pad_2_1.pdf,
-                            customer_pepco_eu.pdf
+                            Care_Label_Pad_3.pdf, customer_pepco_eu.pdf
     (template file names are matched ignoring case, spaces and underscores)
 """
 
@@ -232,12 +235,14 @@ def split_composition(text: str, comp: dict):
 # --------------------------------------------------------------------------
 # panels of one Pad
 # --------------------------------------------------------------------------
-def build_text_panels(pad_cfg: dict, mapping: dict) -> list:
+def build_text_panels(pad_cfg: dict, mapping: dict, n_units: int) -> list:
     """
     The text panels of a Pad in reading order:
         Back side 1, Front side 2, Back side 2, Front side 3, ...
     Each: {name, kind('front'|'back'), number, rect, first_baseline, last_baseline}
-    Row 1 only has ONE text panel (Back side 1, the last column); rows 2.. are full.
+    Back side 1 sits DIRECTLY AFTER the last used Front side 1 slot (column n_units),
+    e.g. 4 sizes -> columns 1-4 = Front side 1, column 5 = Back side 1, column 6 stays
+    empty. Rows 2.. are full rows (Front side 2, Back side 2, ...).
     """
     comp = mapping["composition"]
     pw, ph = mapping["panel_size"]
@@ -245,7 +250,7 @@ def build_text_panels(pad_cfg: dict, mapping: dict) -> list:
     px, py = pad_cfg["pitch"]
     cols, rows = pad_cfg["columns"], pad_cfg["rows"]
 
-    cells = [(0, cols - 1)]                       # Back side 1
+    cells = [(0, min(n_units, cols - 1))]         # Back side 1 right after the last size
     for r in range(1, rows):
         for c in range(cols):
             cells.append((r, c))
@@ -414,7 +419,18 @@ def _draw_front1_fields(page, fonts, rect, row, mapping):
         page.insert_text((cx - w / 2, rect.y0 + baseline), text, fontsize=size,
                          fontname=font, color=BLACK)
 
-    centered(_s(row.get("cm_size")).strip(), "arialb", big, ff["cm_size_baseline"])
+    # size + "cm": drawn as two pieces with a small gap (a normal space is too wide)
+    size_txt = _s(row.get("cm_size")).strip()
+    m = re.match(r"^(.*?\d)\s*([A-Za-z]+)$", size_txt)
+    if m:
+        num, unit = m.group(1), m.group(2)
+        gap = ff.get("cm_gap", 0.5)
+        w1, w2 = fonts.width("arialb", num, big), fonts.width("arialb", unit, big)
+        x0 = cx - (w1 + gap + w2) / 2
+        page.insert_text((x0, rect.y0 + ff["cm_size_baseline"]), num, fontsize=big, fontname="arialb", color=BLACK)
+        page.insert_text((x0 + w1 + gap, rect.y0 + ff["cm_size_baseline"]), unit, fontsize=big, fontname="arialb", color=BLACK)
+    else:
+        centered(size_txt, "arialb", big, ff["cm_size_baseline"])
     centered(ff.get("pepco_text", "|PEPCO|"), "arial", a, ff["pepco_baseline"])
     barcode = _s(row.get("barcode")).strip()
     centered(f"EAN: {barcode}" if barcode else "", "arial", a, ff["ean_baseline"])
@@ -494,7 +510,7 @@ def generate_pad_for_group(group_rows: list, mapping: dict = None, fonts: _Fonts
     pad_doc = fitz.open(_find_template(pad_cfg["template"]))
     page = pad_doc[0]
     comp = mapping["composition"]
-    panels = build_text_panels(pad_cfg, mapping)
+    panels = build_text_panels(pad_cfg, mapping, len(group_rows))
 
     care_text, skup_text, tail_text = split_composition(group_rows[0].get("Composition_Care", ""), comp)
     wrap = lambda t: wrap_composition(t, fonts, comp["font_size"], comp["wrap_width"],
@@ -514,7 +530,7 @@ def generate_pad_for_group(group_rows: list, mapping: dict = None, fonts: _Fonts
         _show(page, rect, front1_tpl)
         _draw_number(page, fonts, rect, 1, mapping)
         _draw_front1_fields(page, fonts, rect, row, mapping)
-    _draw_caption(page, fonts, fitz.Rect(slot_rects[-1]), "Front side 1", mapping)
+    _draw_caption(page, fonts, fitz.Rect(slot_rects[len(group_rows) - 1]), "Front side 1", mapping)
 
     # ---- text panels, only as many as the text needs ----
     email_cfg = mapping["email"]
@@ -531,7 +547,7 @@ def generate_pad_for_group(group_rows: list, mapping: dict = None, fonts: _Fonts
         if panel["kind"] == "front":
             _draw_number(page, fonts, rect, panel["number"], mapping)
         _draw_lines(page, fonts, rect, flow.get(panel["name"], []), mapping)
-        if i == last_idx:   # customer@pepco.eu artwork: bottom of the LAST panel
+        if i == last_idx:   # customer@pepco.eu artwork: 10 mm above the bottom of the LAST panel
             ex0, ey0, ex1, ey1 = email_cfg["rect"]
             _show(page, fitz.Rect(rect.x0 + ex0, rect.y0 + ey0, rect.x0 + ex1, rect.y0 + ey1), email_tpl)
 
